@@ -1,0 +1,55 @@
+# Rust / Cargo
+/cli/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+node_modules/
+
+# Test/coverage
+coverage/
+.coverage
+*.lcov
+.nyc_output/
+
+# Local environment
+.env
+.env.local
+*.local
+
+# Logs
+*.log
+logs/
+
+# Generated ACP files (don't commit example outputs)
+examples/**/.acp.cache.json
+examples/**/.acp.vars.json
+.acp.violations.log
+
+# Documentation build
+docs/_build/
+site/

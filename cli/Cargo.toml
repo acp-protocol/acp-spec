@@ -1,0 +1,108 @@
+[package]
+name = "acp"
+version = "0.1.0"
+edition = "2021"
+authors = ["ACP Contributors"]
+description = "AI Context Protocol - Token-efficient code documentation for AI systems"
+license = "MIT"
+repository = "https://github.com/acp-dev/acp"
+keywords = ["ai", "documentation", "code-analysis", "context", "llm"]
+categories = ["development-tools", "command-line-utilities"]
+
+[lib]
+name = "acp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "acp"
+path = "src/main.rs"
+
+[dependencies]
+# CLI
+clap = { version = "4.4", features = ["derive", "env"] }
+indicatif = "0.17"          # Progress bars
+console = "0.15"            # Terminal colors/styling
+dialoguer = "0.11"          # Interactive prompts
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# File system
+walkdir = "2.4"
+glob = "0.3"
+notify = "6.1"              # File watching
+
+# Parsing
+tree-sitter = "0.20"
+tree-sitter-typescript = "0.20"
+tree-sitter-javascript = "0.20"
+tree-sitter-rust = "0.20"
+tree-sitter-python = "0.20"
+tree-sitter-go = "0.20"
+tree-sitter-java = "0.20"
+
+# Hashing
+md5 = "0.7"
+sha2 = "0.10"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Parallel processing
+rayon = "1.8"
+
+# Regex
+regex = "1.10"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Database (optional, for large codebases)
+rusqlite = { version = "0.30", optional = true, features = ["bundled"] }
+
+# HTTP client (for future MCP server)
+reqwest = { version = "0.11", optional = true, features = ["json"] }
+
+# JSON schema validation
+jsonschema = "0.17"
+
+# Template engine (for output formatting)
+handlebars = "5.1"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+[dev-dependencies]
+tempfile = "3.9"
+pretty_assertions = "1.4"
+criterion = "0.5"
+
+[features]
+default = []
+sqlite = ["rusqlite"]
+mcp = ["reqwest"]
+full = ["sqlite", "mcp"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[[bench]]
+name = "indexing"
+harness = false

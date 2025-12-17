@@ -1,0 +1,60 @@
+//! # ACP - AI Context Protocol
+//!
+//! Token-efficient code documentation and indexing for AI systems.
+//!
+//! ## Features
+//!
+//! - **Fast Parsing**: Uses tree-sitter for accurate AST parsing
+//! - **JSON Output**: Queryable with jq for O(1) lookups
+//! - **Variable System**: Token-efficient macros with inheritance
+//! - **Multi-language**: TypeScript, JavaScript, Rust, Python, Go, Java
+//!
+//! ## Example
+//!
+//! ```rust,no_run
+//! use acp::{Indexer, Config};
+//!
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     let config = Config::default();
+//!     let indexer = Indexer::new(config)?;
+//!     
+//!     // Index codebase
+//!     let cache = indexer.index(".").await?;
+//!     
+//!     // Write JSON output
+//!     cache.write_json(".acp.cache.json")?;
+//!     
+//!     Ok(())
+//! }
+//! ```
+
+pub mod cache;
+pub mod config;
+pub mod constraints;
+pub mod error;
+pub mod expand;
+pub mod index;
+pub mod parse;
+pub mod query;
+pub mod schema;
+pub mod vars;
+pub mod watch;
+
+// Re-exports
+pub use cache::{Cache, CacheBuilder};
+pub use config::Config;
+pub use constraints::{
+    Constraints, ConstraintIndex, 
+    StyleConstraint, MutationConstraint, BehaviorModifier, QualityGate,
+    HackMarker, DebugSession, DebugAttempt,
+    LockLevel, DebugStatus, DebugResult,
+};
+pub use error::{AcpError, Result};
+pub use index::Indexer;
+pub use parse::{Parser, Language};
+pub use query::Query;
+pub use vars::{VarResolver, VarExpander};
+
+/// Library version
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
