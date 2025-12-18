@@ -275,18 +275,20 @@ impl AttemptTracker {
         description: Option<&str>,
     ) -> Result<()> {
         let mut file_states = HashMap::new();
+        let mut file_data: Vec<(String, String, String)> = Vec::new(); // (path, content, hash)
 
         for file_path in files {
             if Path::new(file_path).exists() {
                 let content = fs::read_to_string(file_path)?;
                 let hash = format!("{:x}", md5::compute(&content));
-                
+
                 let stored_content = if content.len() <= Self::MAX_STORED_CONTENT_SIZE {
-                    Some(content)
+                    Some(content.clone())
                 } else {
                     None
                 };
 
+                file_data.push((file_path.to_string(), content, hash.clone()));
                 file_states.insert(file_path.to_string(), FileState {
                     hash,
                     content: stored_content,
@@ -300,6 +302,31 @@ impl AttemptTracker {
             description: description.map(String::from),
             files: file_states,
         });
+
+        // Also track these files in the most recent active attempt
+        if let Some(attempt) = self.attempts.values_mut()
+            .filter(|a| a.status == AttemptStatus::Active)
+            .max_by_key(|a| a.created_at)
+        {
+            for (path, content, hash) in file_data {
+                // Check if file already tracked in this attempt
+                if !attempt.files.iter().any(|f| f.path == path) {
+                    let stored_content = if content.len() <= Self::MAX_STORED_CONTENT_SIZE {
+                        Some(content)
+                    } else {
+                        None
+                    };
+                    attempt.files.push(AttemptFile {
+                        path,
+                        original_hash: hash.clone(),
+                        original_content: stored_content,
+                        modified_hash: hash, // Same as original until modified
+                        lines_changed: None,
+                    });
+                    attempt.updated_at = Utc::now();
+                }
+            }
+        }
 
         self.updated_at = Utc::now();
         self.save()?;
