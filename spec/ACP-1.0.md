@@ -1962,16 +1962,16 @@ This appendix provides JSON Schema definitions for validating ACP files.
 ### Schema Locations
 
 Official schemas are hosted at:
-- Cache: `https://acp-spec.org/schemas/v1/cache.schema.json`
-- Variables: `https://acp-spec.org/schemas/v1/vars.schema.json`
-- Config: `https://acp-spec.org/schemas/v1/config.schema.json`
+- Cache: `https://acp-protocol.dev/schemas/v1/cache.schema.json`
+- Variables: `https://acp-protocol.dev/schemas/v1/vars.schema.json`
+- Config: `https://acp-protocol.dev/schemas/v1/config.schema.json`
 
 ### B.1 Cache Schema (`cache.schema.json`)
 
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://acp-spec.org/schemas/v1/cache.schema.json",
+  "$id": "https://acp-protocol.dev/schemas/v1/cache.schema.json",
   "title": "ACP Cache Format",
   "description": "Schema for .acp.cache.json files",
   "type": "object",
@@ -2142,7 +2142,7 @@ Official schemas are hosted at:
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://acp-spec.org/schemas/v1/vars.schema.json",
+  "$id": "https://acp-protocol.dev/schemas/v1/vars.schema.json",
   "title": "ACP Variables Format",
   "description": "Schema for .acp.vars.json files",
   "type": "object",
@@ -2178,7 +2178,7 @@ Official schemas are hosted at:
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://acp-spec.org/schemas/v1/config.schema.json",
+  "$id": "https://acp-protocol.dev/schemas/v1/config.schema.json",
   "title": "ACP Config Format",
   "description": "Schema for .acp.config.json files",
   "type": "object",
@@ -2262,7 +2262,7 @@ Official schemas are hosted at:
 
 To validate a cache file:
 ```bash
-jsonschema -i .acp.cache.json https://acp-spec.org/schemas/v1/cache.schema.json
+jsonschema -i .acp.cache.json https://acp-protocol.dev/schemas/v1/cache.schema.json
 ```
 
 To validate programmatically (Node.js with Ajv):
@@ -2286,7 +2286,7 @@ if (!valid) console.log(ajv.errors);
 Detailed language-specific parsing notes are maintained in external documentation for easier community contribution and updates.
 
 **Documentation:** `docs/LANGUAGE-SUPPORT.md`
-**Repository:** https://github.com/acp-spec/acp-spec
+**Repository:** https://github.com/acp-protocol/acp-spec
 
 This document covers:
 - Per-language annotation extraction details
@@ -2382,4 +2382,5 @@ Initial draft specification release.
 ---
 
 *This specification is maintained by the ACP working group.*
-*For issues, contributions, or questions: https://github.com/acp-spec/acp-spec*
+*For issues, contributions, or questions: https://github.com/acp-protocol/acp-spec*
+
