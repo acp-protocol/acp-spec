@@ -159,6 +159,18 @@
           "description": "Maximum cache file size in MB"
         }
       }
+    },
+    "sync": {
+      "oneOf": [
+        {
+          "$ref": "https://acp-protocol.dev/schemas/v1/sync.schema.json"
+        },
+        {
+          "type": "boolean",
+          "description": "Enable/disable sync with default settings"
+        }
+      ],
+      "description": "Sync configuration for AI tool integration (can also be in .acp/acp.sync.json)"
     }
   }
 }

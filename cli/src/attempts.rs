@@ -71,7 +71,11 @@ pub struct TrackedCheckpoint {
     pub name: String,
     pub created_at: DateTime<Utc>,
     pub description: Option<String>,
-    
+
+    /// Git commit SHA at checkpoint time
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_commit: Option<String>,
+
     /// File states at checkpoint
     pub files: HashMap<String, FileState>,
 }
@@ -305,10 +309,21 @@ impl AttemptTracker {
             }
         }
 
+        // Capture git commit SHA if in a git repository
+        let git_commit = std::process::Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| s.len() == 40);
+
         self.checkpoints.insert(name.to_string(), TrackedCheckpoint {
             name: name.to_string(),
             created_at: Utc::now(),
             description: description.map(String::from),
+            git_commit,
             files: file_states,
         });
 
