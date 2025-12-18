@@ -301,8 +301,8 @@ async fn main() -> anyhow::Result<()> {
         Config::default()
     };
 
-    // Check for config requirement (all commands except init require .acp.config.json)
-    let requires_config = !matches!(cli.command, Commands::Init { .. });
+    // Check for config requirement (most commands require .acp.config.json)
+    let requires_config = !matches!(cli.command, Commands::Init { .. } | Commands::Validate { .. });
     if requires_config {
         let config_path = PathBuf::from(".acp.config.json");
         if !config_path.exists() {
