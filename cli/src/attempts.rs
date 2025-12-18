@@ -14,21 +14,29 @@ use serde::{Deserialize, Serialize};
 use crate::error::Result;
 use crate::constraints::AttemptStatus;
 
+fn default_attempts_schema() -> String {
+    "https://acp-protocol.dev/schemas/v1/attempts.schema.json".to_string()
+}
+
 /// Tracks all attempts across the project
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttemptTracker {
+    /// JSON Schema URL for validation
+    #[serde(rename = "$schema", default = "default_attempts_schema")]
+    pub schema: String,
+
     /// Version
     pub version: String,
-    
+
     /// When last updated
     pub updated_at: DateTime<Utc>,
-    
+
     /// Active attempts by ID
     pub attempts: HashMap<String, TrackedAttempt>,
-    
+
     /// Checkpoints by name
     pub checkpoints: HashMap<String, TrackedCheckpoint>,
-    
+
     /// Attempt history (completed/reverted)
     pub history: Vec<AttemptHistoryEntry>,
 }
@@ -86,12 +94,13 @@ pub struct AttemptHistoryEntry {
 }
 
 impl AttemptTracker {
-    const FILE_NAME: &'static str = ".acp.attempts.json";
+    const FILE_NAME: &'static str = ".acp/acp.attempts.json";
     const MAX_STORED_CONTENT_SIZE: usize = 100_000; // 100KB
 
     /// Load or create tracker
     pub fn load_or_create() -> Self {
         Self::load().unwrap_or_else(|_| Self {
+            schema: default_attempts_schema(),
             version: crate::VERSION.to_string(),
             updated_at: Utc::now(),
             attempts: HashMap::new(),
