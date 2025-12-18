@@ -741,7 +741,17 @@ async fn main() -> anyhow::Result<()> {
         Commands::Check { file, cache } => {
             let cache_data = Cache::from_json(&cache)?;
 
-            if let Some(file_entry) = cache_data.files.get(&file.to_string_lossy().to_string()) {
+            // Try multiple path formats to find the file
+            let file_str = file.to_string_lossy().to_string();
+            let file_entry = cache_data.files.get(&file_str)
+                .or_else(|| cache_data.files.get(&format!("./{}", file_str)))
+                .or_else(|| {
+                    // Try stripping ./ prefix if present
+                    let stripped = file_str.strip_prefix("./").unwrap_or(&file_str);
+                    cache_data.files.get(stripped)
+                });
+
+            if let Some(file_entry) = file_entry {
                 // File found in cache - show basic info
                 println!("{} File found in cache", style("✓").green());
                 println!("  Path: {}", file_entry.path);
