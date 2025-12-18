@@ -27,7 +27,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["symbol", "file", "domain"],
+          "enum": ["symbol", "file", "domain", "layer", "pattern", "context"],
           "description": "Variable type"
         },
         "value": {
@@ -37,6 +37,23 @@
         "description": {
           "type": "string",
           "description": "Human-readable description"
+        },
+        "refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "References to other variables (for inheritance chains)"
+        },
+        "source": {
+          "type": "string",
+          "description": "Source file path where the variable is defined"
+        },
+        "lines": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[start_line, end_line] range in source file"
         }
       }
     }

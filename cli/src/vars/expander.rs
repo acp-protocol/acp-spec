@@ -105,14 +105,45 @@ impl VarExpander {
         }
     }
 
-    /// Get inheritance chain for a variable (simplified - no refs in new schema)
+    /// Get inheritance chain for a variable by traversing refs
     pub fn get_inheritance_chain(&self, name: &str) -> InheritanceChain {
+        let mut chain = vec![name.to_string()];
+        let mut visited = HashSet::new();
+        visited.insert(name.to_string());
+
+        let has_cycle = self.build_chain(name, &mut chain, &mut visited);
+        let depth = chain.len() - 1;
+
         InheritanceChain {
             root: name.to_string(),
-            chain: vec![name.to_string()],
-            depth: 0,
-            has_cycle: false,
+            chain,
+            depth,
+            has_cycle,
         }
+    }
+
+    /// Build inheritance chain by traversing refs recursively
+    /// Returns true if a cycle was detected
+    fn build_chain(
+        &self,
+        name: &str,
+        chain: &mut Vec<String>,
+        visited: &mut HashSet<String>,
+    ) -> bool {
+        if let Some(var) = self.resolver.get(name) {
+            for ref_name in &var.refs {
+                if visited.contains(ref_name) {
+                    // Cycle detected
+                    return true;
+                }
+                visited.insert(ref_name.clone());
+                chain.push(ref_name.clone());
+                if self.build_chain(ref_name, chain, visited) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     fn format_var(&mut self, name: &str, var: &VarEntry, modifier: Option<&str>, mode: ExpansionMode) -> String {

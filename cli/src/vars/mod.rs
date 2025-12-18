@@ -84,6 +84,15 @@ pub struct VarEntry {
     /// Human-readable description (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// References to other variables for inheritance chains (optional)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub refs: Vec<String>,
+    /// Source file path where the variable is defined (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    /// Line range [start, end] in source file (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lines: Option<[usize; 2]>,
 }
 
 impl VarEntry {
@@ -93,6 +102,42 @@ impl VarEntry {
             var_type: VarType::Symbol,
             value: value.into(),
             description,
+            refs: vec![],
+            source: None,
+            lines: None,
+        }
+    }
+
+    /// Create a new symbol variable with source location
+    pub fn symbol_with_source(
+        value: impl Into<String>,
+        description: Option<String>,
+        source: String,
+        lines: [usize; 2],
+    ) -> Self {
+        Self {
+            var_type: VarType::Symbol,
+            value: value.into(),
+            description,
+            refs: vec![],
+            source: Some(source),
+            lines: Some(lines),
+        }
+    }
+
+    /// Create a new symbol variable with refs (for inheritance)
+    pub fn symbol_with_refs(
+        value: impl Into<String>,
+        description: Option<String>,
+        refs: Vec<String>,
+    ) -> Self {
+        Self {
+            var_type: VarType::Symbol,
+            value: value.into(),
+            description,
+            refs,
+            source: None,
+            lines: None,
         }
     }
 
@@ -102,6 +147,9 @@ impl VarEntry {
             var_type: VarType::File,
             value: value.into(),
             description,
+            refs: vec![],
+            source: None,
+            lines: None,
         }
     }
 
@@ -111,6 +159,45 @@ impl VarEntry {
             var_type: VarType::Domain,
             value: value.into(),
             description,
+            refs: vec![],
+            source: None,
+            lines: None,
+        }
+    }
+
+    /// Create a new layer variable
+    pub fn layer(value: impl Into<String>, description: Option<String>) -> Self {
+        Self {
+            var_type: VarType::Layer,
+            value: value.into(),
+            description,
+            refs: vec![],
+            source: None,
+            lines: None,
+        }
+    }
+
+    /// Create a new pattern variable
+    pub fn pattern(value: impl Into<String>, description: Option<String>) -> Self {
+        Self {
+            var_type: VarType::Pattern,
+            value: value.into(),
+            description,
+            refs: vec![],
+            source: None,
+            lines: None,
+        }
+    }
+
+    /// Create a new context variable
+    pub fn context(value: impl Into<String>, description: Option<String>) -> Self {
+        Self {
+            var_type: VarType::Context,
+            value: value.into(),
+            description,
+            refs: vec![],
+            source: None,
+            lines: None,
         }
     }
 }
@@ -122,6 +209,9 @@ pub enum VarType {
     Symbol,
     File,
     Domain,
+    Layer,
+    Pattern,
+    Context,
 }
 
 impl std::fmt::Display for VarType {
@@ -130,6 +220,9 @@ impl std::fmt::Display for VarType {
             Self::Symbol => "symbol",
             Self::File => "file",
             Self::Domain => "domain",
+            Self::Layer => "layer",
+            Self::Pattern => "pattern",
+            Self::Context => "context",
         };
         write!(f, "{}", s)
     }

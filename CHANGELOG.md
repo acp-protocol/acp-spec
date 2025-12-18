@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Variable Inheritance**: `refs` field for variable-to-variable references with chain traversal
+- **Extended Variable Types**: Added `layer`, `pattern`, `context` types to vars schema
+- **Variable Metadata**: Added `source` and `lines` fields to track variable origin in vars schema
 - **Formal Grammar**: W3C EBNF grammar for annotations with railroad diagrams (`spec/grammar/`)
 - **Specification Examples**: Minimal, complete, and edge-case examples (`spec/examples/`)
 - **CLI Implementation Guide**: Comprehensive Rust CLI development guide (`docs/rust-cli/`)

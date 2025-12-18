@@ -161,17 +161,35 @@ impl Indexer {
     pub fn generate_vars(&self, cache: &Cache) -> VarsFile {
         let mut vars_file = VarsFile::new();
 
-        // Generate symbol vars
+        // Build a map of symbol names to var names for ref resolution
+        let mut symbol_to_var: std::collections::HashMap<String, String> = std::collections::HashMap::new();
         for (name, symbol) in &cache.symbols {
             if symbol.exported {
                 let var_name = format!("SYM_{}", name.to_uppercase().replace('.', "_"));
-                vars_file.add_variable(
-                    var_name,
-                    VarEntry::symbol(
-                        symbol.qualified_name.clone(),
-                        symbol.summary.clone(),
-                    ),
-                );
+                symbol_to_var.insert(name.clone(), var_name);
+            }
+        }
+
+        // Generate symbol vars with refs from call graph
+        for (name, symbol) in &cache.symbols {
+            if symbol.exported {
+                let var_name = format!("SYM_{}", name.to_uppercase().replace('.', "_"));
+
+                // Build refs from symbols this one calls
+                let refs: Vec<String> = symbol.calls.iter()
+                    .filter_map(|callee| symbol_to_var.get(callee).cloned())
+                    .collect();
+
+                let entry = VarEntry {
+                    var_type: crate::vars::VarType::Symbol,
+                    value: symbol.qualified_name.clone(),
+                    description: symbol.summary.clone(),
+                    refs,
+                    source: Some(symbol.file.clone()),
+                    lines: Some(symbol.lines),
+                };
+
+                vars_file.add_variable(var_name, entry);
             }
         }
 
@@ -203,6 +221,27 @@ impl Indexer {
                     ),
                 );
             }
+        }
+
+        // Generate layer vars from unique layers
+        let mut layers: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for file in cache.files.values() {
+            if let Some(layer) = &file.layer {
+                layers.insert(layer.clone());
+            }
+        }
+        for layer in layers {
+            let var_name = format!("LAYER_{}", layer.to_uppercase().replace('-', "_"));
+            let file_count = cache.files.values()
+                .filter(|f| f.layer.as_ref() == Some(&layer))
+                .count();
+            vars_file.add_variable(
+                var_name,
+                VarEntry::layer(
+                    layer.clone(),
+                    Some(format!("Layer: {} ({} files)", layer, file_count)),
+                ),
+            );
         }
 
         vars_file
