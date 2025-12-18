@@ -184,6 +184,11 @@ impl CacheBuilder {
         self
     }
 
+    pub fn set_constraints(mut self, constraints: ConstraintIndex) -> Self {
+        self.cache.constraints = Some(constraints);
+        self
+    }
+
     pub fn build(mut self) -> Cache {
         self.cache.update_stats();
         self.cache
@@ -239,6 +244,9 @@ pub struct FileEntry {
     /// Stability level (optional, null if not specified)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stability: Option<Stability>,
+    /// AI behavioral hints (e.g., "ai-careful", "ai-readonly")
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ai_hints: Vec<String>,
 }
 
 /// @acp:summary "Symbol entry with metadata (schema-compliant)"

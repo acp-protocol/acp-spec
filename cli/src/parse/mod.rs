@@ -18,6 +18,18 @@ pub struct ParseResult {
     pub file: FileEntry,
     pub symbols: Vec<SymbolEntry>,
     pub calls: Vec<(String, Vec<String>)>, // (caller, callees)
+    pub lock_level: Option<String>,         // from @acp:lock
+    pub ai_hints: Vec<String>,              // from @acp:ai-careful, @acp:ai-readonly, etc.
+    pub hacks: Vec<HackAnnotation>,         // from @acp:hack
+}
+
+/// @acp:summary "Parsed hack annotation"
+#[derive(Debug, Clone)]
+pub struct HackAnnotation {
+    pub line: usize,
+    pub expires: Option<String>,
+    pub ticket: Option<String>,
+    pub reason: Option<String>,
 }
 
 /// @acp:summary "Parser for source files"
@@ -61,6 +73,9 @@ impl Parser {
         let mut exports = vec![];
         let mut imports = vec![];
         let mut calls = vec![];
+        let mut lock_level = None;
+        let mut ai_hints = vec![];
+        let mut hacks = vec![];
 
         // Track current symbol context for multi-line annotations
         let mut current_symbol: Option<SymbolBuilder> = None;
@@ -91,6 +106,43 @@ impl Parser {
                     if let Some(val) = &ann.value {
                         layer = Some(val.trim_matches('"').to_string());
                     }
+                }
+                "lock" => {
+                    if let Some(val) = &ann.value {
+                        lock_level = Some(val.trim_matches('"').to_string());
+                    }
+                }
+                "ai-careful" | "ai-readonly" | "ai-avoid" | "ai-no-modify" => {
+                    let hint = if let Some(val) = &ann.value {
+                        format!("{}: {}", ann.name, val.trim_matches('"'))
+                    } else {
+                        ann.name.clone()
+                    };
+                    ai_hints.push(hint);
+                }
+                "hack" => {
+                    // Parse hack annotation: @acp:hack expires=2025-03-01 ticket=JIRA-123 "reason"
+                    let mut hack = HackAnnotation {
+                        line: ann.line,
+                        expires: None,
+                        ticket: None,
+                        reason: None,
+                    };
+                    if let Some(val) = &ann.value {
+                        // Parse key=value pairs and quoted reason
+                        for part in val.split_whitespace() {
+                            if let Some(expires) = part.strip_prefix("expires=") {
+                                hack.expires = Some(expires.to_string());
+                            } else if let Some(ticket) = part.strip_prefix("ticket=") {
+                                hack.ticket = Some(ticket.to_string());
+                            } else if part.starts_with('"') {
+                                // Capture the rest as reason
+                                hack.reason = Some(val.split('"').nth(1).unwrap_or("").to_string());
+                                break;
+                            }
+                        }
+                    }
+                    hacks.push(hack);
                 }
                 "symbol" => {
                     // Save previous symbol if exists
@@ -160,19 +212,23 @@ impl Parser {
             domains,
             layer,
             stability: None,
+            ai_hints: ai_hints.clone(),
         };
 
         Ok(ParseResult {
             file,
             symbols,
             calls,
+            lock_level,
+            ai_hints,
+            hacks,
         })
     }
 
     /// @acp:summary "Parse @acp: annotations from source comments"
     pub fn parse_annotations(&self, content: &str) -> Vec<Annotation> {
         let mut annotations = Vec::new();
-        let pattern = regex::Regex::new(r"@acp:(\w+)(?:\s+(.+))?").unwrap();
+        let pattern = regex::Regex::new(r"@acp:([\w-]+)(?:\s+(.+))?").unwrap();
 
         for (line_num, line) in content.lines().enumerate() {
             for cap in pattern.captures_iter(line) {

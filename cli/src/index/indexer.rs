@@ -16,6 +16,7 @@ use glob::Pattern;
 
 use crate::cache::{Cache, CacheBuilder, DomainEntry, Language};
 use crate::config::Config;
+use crate::constraints::{ConstraintIndex, Constraints, MutationConstraint, LockLevel, HackMarker, HackType};
 use crate::error::Result;
 use crate::parse::Parser;
 use crate::vars::{VarsFile, VarEntry};
@@ -73,19 +74,20 @@ impl Indexer {
         // Build cache from results
         let mut domains: std::collections::HashMap<String, Vec<String>> =
             std::collections::HashMap::new();
+        let mut constraint_index = ConstraintIndex::default();
 
-        for result in results {
+        for result in &results {
             // Add file
             builder = builder.add_file(result.file.clone());
 
             // Add symbols
-            for symbol in result.symbols {
-                builder = builder.add_symbol(symbol);
+            for symbol in &result.symbols {
+                builder = builder.add_symbol(symbol.clone());
             }
 
             // Add call edges
-            for (from, to) in result.calls {
-                builder = builder.add_call_edge(&from, to);
+            for (from, to) in &result.calls {
+                builder = builder.add_call_edge(from, to.clone());
             }
 
             // Track domains
@@ -94,6 +96,67 @@ impl Indexer {
                     .entry(domain.clone())
                     .or_default()
                     .push(result.file.path.clone());
+            }
+
+            // Build constraints from parse result
+            if result.lock_level.is_some() || !result.ai_hints.is_empty() {
+                let lock_level = result.lock_level.as_ref().map(|l| {
+                    match l.to_lowercase().as_str() {
+                        "frozen" => LockLevel::Frozen,
+                        "restricted" => LockLevel::Restricted,
+                        "approval-required" => LockLevel::ApprovalRequired,
+                        "tests-required" => LockLevel::TestsRequired,
+                        "docs-required" => LockLevel::DocsRequired,
+                        "experimental" => LockLevel::Experimental,
+                        _ => LockLevel::Normal,
+                    }
+                }).unwrap_or(LockLevel::Normal);
+
+                let constraints = Constraints {
+                    mutation: Some(MutationConstraint {
+                        level: lock_level.clone(),
+                        reason: None,
+                        contact: None,
+                        requires_approval: matches!(lock_level, LockLevel::ApprovalRequired),
+                        requires_tests: matches!(lock_level, LockLevel::TestsRequired),
+                        requires_docs: matches!(lock_level, LockLevel::DocsRequired),
+                        max_lines_changed: None,
+                        allowed_operations: None,
+                        forbidden_operations: None,
+                    }),
+                    ..Default::default()
+                };
+                constraint_index.by_file.insert(result.file.path.clone(), constraints);
+
+                // Track by lock level
+                let level_str = format!("{:?}", lock_level).to_lowercase();
+                constraint_index.by_lock_level
+                    .entry(level_str)
+                    .or_default()
+                    .push(result.file.path.clone());
+            }
+
+            // Build hack markers
+            for hack in &result.hacks {
+                let hack_marker = HackMarker {
+                    id: format!("{}:{}", result.file.path, hack.line),
+                    hack_type: HackType::Workaround,
+                    file: result.file.path.clone(),
+                    line: Some(hack.line),
+                    created_at: Utc::now(),
+                    author: None,
+                    reason: hack.reason.clone().unwrap_or_else(|| "Temporary hack".to_string()),
+                    ticket: hack.ticket.clone(),
+                    expires: hack.expires.as_ref().and_then(|e| {
+                        chrono::NaiveDate::parse_from_str(e, "%Y-%m-%d")
+                            .ok()
+                            .map(|d| d.and_hms_opt(0, 0, 0).unwrap())
+                            .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+                    }),
+                    original_code: None,
+                    revert_instructions: None,
+                };
+                constraint_index.hacks.push(hack_marker);
             }
         }
 
@@ -105,6 +168,11 @@ impl Indexer {
                 symbols: vec![],
                 description: None,
             });
+        }
+
+        // Add constraints if any were found
+        if !constraint_index.by_file.is_empty() || !constraint_index.hacks.is_empty() {
+            builder = builder.set_constraints(constraint_index);
         }
 
         Ok(builder.build())

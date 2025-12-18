@@ -761,11 +761,33 @@ async fn main() -> anyhow::Result<()> {
                     println!("  Stability: {:?}", stability);
                 }
 
+                // Show AI hints if present
+                if !file_entry.ai_hints.is_empty() {
+                    println!("  AI hints: {}", file_entry.ai_hints.join(", "));
+                }
+
                 // Check constraints if available
                 if let Some(ref constraints) = cache_data.constraints {
-                    if let Some(file_constraints) = constraints.by_file.get(&file_entry.path) {
+                    // Try to find constraints with various path formats
+                    let file_constraints = constraints.by_file.get(&file_entry.path)
+                        .or_else(|| constraints.by_file.get(&format!("./{}", file_entry.path)))
+                        .or_else(|| {
+                            let stripped = file_entry.path.strip_prefix("./").unwrap_or(&file_entry.path);
+                            constraints.by_file.get(stripped)
+                        });
+
+                    if let Some(file_constraints) = file_constraints {
                         if let Some(mutation) = &file_constraints.mutation {
                             println!("  Lock level: {:?}", mutation.level);
+                            if mutation.requires_approval {
+                                println!("  {} Requires approval", style("⚠").yellow());
+                            }
+                            if mutation.requires_tests {
+                                println!("  {} Requires tests", style("⚠").yellow());
+                            }
+                            if mutation.requires_docs {
+                                println!("  {} Requires documentation", style("⚠").yellow());
+                            }
                         }
                     }
                 }
