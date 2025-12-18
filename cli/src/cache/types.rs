@@ -15,60 +15,65 @@ use std::path::Path;
 use crate::constraints::ConstraintIndex;
 use crate::error::Result;
 
-/// @acp:summary "Complete ACP cache file structure"
+/// @acp:summary "Complete ACP cache file structure (schema-compliant)"
 /// @acp:lock normal
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cache {
-    /// Schema version
+    /// JSON Schema URL for validation
+    #[serde(rename = "$schema", default = "default_cache_schema")]
+    pub schema: String,
+    /// Schema version (required)
     pub version: String,
-    /// Generation timestamp
+    /// Generation timestamp (required)
     pub generated_at: DateTime<Utc>,
-    /// Project metadata
+    /// Git commit SHA (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_commit: Option<String>,
+    /// Project metadata (required)
     pub project: ProjectInfo,
-    /// Aggregate statistics
+    /// Aggregate statistics (required)
     pub stats: Stats,
-    /// Files indexed by path (O(1) lookup)
+    /// Map of file paths to modification times for staleness detection (required)
+    pub source_files: HashMap<String, DateTime<Utc>>,
+    /// Files indexed by path (required)
     pub files: HashMap<String, FileEntry>,
-    /// Symbols indexed by name (O(1) lookup)
+    /// Symbols indexed by name (required)
     pub symbols: HashMap<String, SymbolEntry>,
-    /// Bidirectional call graph
-    pub graph: CallGraph,
-    /// Domain groupings
+    /// Call graph relationships (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub graph: Option<CallGraph>,
+    /// Domain groupings (optional)
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub domains: HashMap<String, DomainEntry>,
-    /// Layer groupings
-    pub layers: HashMap<String, Vec<String>>,
-    /// Security-sensitive code index
-    pub security: SecurityIndex,
-    /// Frequently-called symbols
-    pub hotpaths: Vec<HotpathEntry>,
-    /// Stability classifications
-    pub stability: StabilityIndex,
-    /// AI behavioral constraints
-    #[serde(default)]
-    pub constraints: ConstraintIndex,
+    /// AI behavioral constraints (optional)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub constraints: Option<ConstraintIndex>,
+}
+
+fn default_cache_schema() -> String {
+    "https://acp-protocol.dev/schemas/v1/cache.schema.json".to_string()
 }
 
 impl Cache {
     /// @acp:summary "Create a new empty cache"
     pub fn new(project_name: &str, root: &str) -> Self {
         Self {
+            schema: default_cache_schema(),
             version: crate::VERSION.to_string(),
             generated_at: Utc::now(),
+            git_commit: None,
             project: ProjectInfo {
                 name: project_name.to_string(),
                 root: root.to_string(),
                 description: None,
             },
             stats: Stats::default(),
+            source_files: HashMap::new(),
             files: HashMap::new(),
             symbols: HashMap::new(),
-            graph: CallGraph::default(),
+            graph: Some(CallGraph::default()),
             domains: HashMap::new(),
-            layers: HashMap::new(),
-            security: SecurityIndex::default(),
-            hotpaths: Vec::new(),
-            stability: StabilityIndex::default(),
-            constraints: ConstraintIndex::default(),
+            constraints: None,
         }
     }
 
@@ -100,22 +105,17 @@ impl Cache {
 
     /// @acp:summary "Get callers of a symbol from reverse call graph"
     pub fn get_callers(&self, symbol: &str) -> Option<&Vec<String>> {
-        self.graph.reverse.get(symbol)
+        self.graph.as_ref().and_then(|g| g.reverse.get(symbol))
     }
 
     /// @acp:summary "Get callees of a symbol from forward call graph"
     pub fn get_callees(&self, symbol: &str) -> Option<&Vec<String>> {
-        self.graph.forward.get(symbol)
+        self.graph.as_ref().and_then(|g| g.forward.get(symbol))
     }
 
     /// @acp:summary "Get all files in a domain"
     pub fn get_domain_files(&self, domain: &str) -> Option<&Vec<String>> {
         self.domains.get(domain).map(|d| &d.files)
-    }
-
-    /// @acp:summary "Get all files in an architectural layer"
-    pub fn get_layer_files(&self, layer: &str) -> Option<&Vec<String>> {
-        self.layers.get(layer)
     }
 
     /// @acp:summary "Recalculate statistics after indexing"
@@ -160,15 +160,21 @@ impl CacheBuilder {
     }
 
     pub fn add_call_edge(mut self, from: &str, to: Vec<String>) -> Self {
-        self.cache.graph.forward.insert(from.to_string(), to.clone());
+        let graph = self.cache.graph.get_or_insert_with(CallGraph::default);
+        graph.forward.insert(from.to_string(), to.clone());
 
         // Build reverse graph
         for callee in to {
-            self.cache.graph.reverse
+            graph.reverse
                 .entry(callee)
                 .or_default()
                 .push(from.to_string());
         }
+        self
+    }
+
+    pub fn add_source_file(mut self, path: String, modified_at: DateTime<Utc>) -> Self {
+        self.cache.source_files.insert(path, modified_at);
         self
     }
 
@@ -203,86 +209,135 @@ pub struct Stats {
     pub annotation_coverage: f64,
 }
 
-/// @acp:summary "File entry with metadata and guardrails"
+/// @acp:summary "File entry with metadata (schema-compliant)"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileEntry {
+    /// Relative path from project root (required)
     pub path: String,
-    pub module: String,
+    /// Line count (required)
     pub lines: usize,
-    #[serde(default)]
-    pub domains: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub layer: Option<String>,
-    #[serde(default)]
-    pub stability: Stability,
-    #[serde(default)]
-    pub depends: Vec<String>,
+    /// Programming language identifier (required)
+    pub language: Language,
+    /// Exported symbols (required)
     #[serde(default)]
     pub exports: Vec<String>,
+    /// Imported modules (required)
     #[serde(default)]
-    pub symbols: Vec<String>,
-    #[serde(default)]
-    pub keywords: Vec<String>,
+    pub imports: Vec<String>,
+    /// Human-readable module name (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub hash: Option<String>,
-    /// Guardrail annotations parsed from this file
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub guardrails: Option<crate::constraints::FileGuardrails>,
-}
-
-/// @acp:summary "Symbol entry with metadata"
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SymbolEntry {
-    pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fqn: Option<String>,
-    #[serde(rename = "type")]
-    pub symbol_type: SymbolType,
-    pub file: String,
-    pub lines: [usize; 2],
+    pub module: Option<String>,
+    /// Brief file description (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// Domain classifications (optional)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub domains: Vec<String>,
+    /// Architectural layer (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub signature: Option<String>,
-    #[serde(default)]
-    pub async_fn: bool,
-    #[serde(default)]
-    pub exported: bool,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub calls: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub throws: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub flags: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub side_effects: Vec<String>,
+    pub layer: Option<String>,
+    /// Stability level (optional, null if not specified)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub complexity: Option<String>,
+    pub stability: Option<Stability>,
 }
 
-/// @acp:summary "Symbol type enumeration"
+/// @acp:summary "Symbol entry with metadata (schema-compliant)"
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymbolEntry {
+    /// Simple symbol name (required)
+    pub name: String,
+    /// Qualified name: file_path:class.symbol (required)
+    pub qualified_name: String,
+    /// Symbol type (required)
+    #[serde(rename = "type")]
+    pub symbol_type: SymbolType,
+    /// Containing file path (required)
+    pub file: String,
+    /// [start_line, end_line] (required)
+    pub lines: [usize; 2],
+    /// Whether exported (required)
+    pub exported: bool,
+    /// Function signature (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+    /// Brief description (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    /// Whether async (optional, default false)
+    #[serde(rename = "async", default, skip_serializing_if = "is_false")]
+    pub async_fn: bool,
+    /// Symbol visibility (optional, default public)
+    #[serde(default, skip_serializing_if = "is_default_visibility")]
+    pub visibility: Visibility,
+    /// Symbols this calls (optional)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub calls: Vec<String>,
+    /// Symbols calling this (optional)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub called_by: Vec<String>,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+fn is_default_visibility(v: &Visibility) -> bool {
+    *v == Visibility::Public
+}
+
+/// @acp:summary "Symbol type enumeration (schema-compliant)"
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SymbolType {
     #[default]
-    Fn,
-    Class,
+    Function,
     Method,
-    Const,
-    Type,
+    Class,
     Interface,
-    Var,
+    Type,
+    Enum,
+    Struct,
+    Trait,
+    Const,
 }
 
-/// @acp:summary "Stability classification"
+/// @acp:summary "Symbol visibility"
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Stability {
-    Frozen,
-    Stable,
+pub enum Visibility {
     #[default]
-    Active,
-    Volatile,
+    Public,
+    Private,
+    Protected,
+}
+
+/// @acp:summary "Stability classification (schema-compliant)"
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Stability {
+    Stable,
+    Experimental,
+    Deprecated,
+}
+
+/// @acp:summary "Programming language identifier (schema-compliant)"
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Language {
+    Typescript,
+    Javascript,
+    Python,
+    Rust,
+    Go,
+    Java,
+    #[serde(rename = "c-sharp")]
+    CSharp,
+    Cpp,
+    C,
+    Ruby,
+    Php,
+    Swift,
+    Kotlin,
 }
 
 /// @acp:summary "Bidirectional call graph"
@@ -296,64 +351,19 @@ pub struct CallGraph {
     pub reverse: HashMap<String, Vec<String>>,
 }
 
-/// @acp:summary "Domain grouping"
+/// @acp:summary "Domain grouping (schema-compliant)"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomainEntry {
+    /// Domain identifier (required)
     pub name: String,
+    /// Files in this domain (required)
     pub files: Vec<String>,
+    /// Symbols in this domain (required)
     #[serde(default)]
     pub symbols: Vec<String>,
-    #[serde(default)]
-    pub file_count: usize,
-    #[serde(default)]
-    pub symbol_count: usize,
-}
-
-/// @acp:summary "Security-sensitive code index"
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SecurityIndex {
-    #[serde(default)]
-    pub pii: Vec<String>,
-    #[serde(default)]
-    pub phi: Vec<String>,
-    #[serde(default)]
-    pub financial: Vec<String>,
-    #[serde(default)]
-    pub credentials: Vec<String>,
-    #[serde(default)]
-    pub auth_required: Vec<String>,
-    #[serde(default)]
-    pub audit_logged: Vec<String>,
-    #[serde(default)]
-    pub compliance: HashMap<String, Vec<String>>,
-}
-
-/// @acp:summary "Hotpath entry for frequently-called code"
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HotpathEntry {
-    pub symbol: String,
-    pub file: String,
+    /// Human description (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub frequency: Option<String>,
-    #[serde(default)]
-    pub callers: usize,
-}
-
-/// @acp:summary "Stability index groupings"
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct StabilityIndex {
-    #[serde(default)]
-    pub frozen: Vec<String>,
-    #[serde(default)]
-    pub stable: Vec<String>,
-    #[serde(default)]
-    pub active: Vec<String>,
-    #[serde(default)]
-    pub volatile: Vec<String>,
-    #[serde(default)]
-    pub deprecated: Vec<String>,
+    pub description: Option<String>,
 }
 
 #[cfg(test)]
@@ -365,19 +375,17 @@ mod tests {
         let cache = CacheBuilder::new("test", "/test")
             .add_symbol(SymbolEntry {
                 name: "test_fn".to_string(),
-                fqn: None,
-                symbol_type: SymbolType::Fn,
+                qualified_name: "test.rs:test_fn".to_string(),
+                symbol_type: SymbolType::Function,
                 file: "test.rs".to_string(),
                 lines: [1, 10],
-                summary: Some("Test function".to_string()),
-                signature: None,
-                async_fn: false,
                 exported: true,
+                signature: None,
+                summary: Some("Test function".to_string()),
+                async_fn: false,
+                visibility: Visibility::Public,
                 calls: vec![],
-                throws: vec![],
-                flags: vec![],
-                side_effects: vec![],
-                complexity: None,
+                called_by: vec![],
             })
             .build();
 

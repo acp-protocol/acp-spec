@@ -43,13 +43,14 @@ pub mod expand;
 pub mod index;
 pub mod parse;
 pub mod query;
+pub mod scan;
 pub mod schema;
 pub mod vars;
 pub mod watch;
 pub mod attempts;
 
 // Re-exports
-pub use cache::{Cache, CacheBuilder};
+pub use cache::{Cache, CacheBuilder, Language};
 pub use config::Config;
 pub use constraints::{
     Constraints, ConstraintIndex,
@@ -60,8 +61,9 @@ pub use constraints::{
 };
 pub use error::{AcpError, Result};
 pub use index::Indexer;
-pub use parse::{Parser, Language};
+pub use parse::Parser;
 pub use query::Query;
+pub use scan::{scan_project, ProjectScan};
 pub use vars::{VarResolver, VarExpander};
 pub use attempts::AttemptTracker;
 

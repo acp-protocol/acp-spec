@@ -1,5 +1,5 @@
 //! @acp:module "Query"
-//! @acp:summary "Programmatic cache access and querying"
+//! @acp:summary "Programmatic cache access and querying (schema-compliant)"
 //! @acp:domain cli
 //! @acp:layer service
 //!
@@ -58,11 +58,12 @@ impl<'a> Query<'a> {
             .unwrap_or_default()
     }
 
-    /// Get files by layer
+    /// Get files by layer (from file entries)
     pub fn files_in_layer(&self, layer: &str) -> Vec<&str> {
-        self.cache.get_layer_files(layer)
-            .map(|v| v.iter().map(|s| s.as_str()).collect())
-            .unwrap_or_default()
+        self.cache.files.values()
+            .filter(|f| f.layer.as_deref() == Some(layer))
+            .map(|f| f.path.as_str())
+            .collect()
     }
 
     /// Search symbols by name pattern
@@ -73,21 +74,21 @@ impl<'a> Query<'a> {
             .collect()
     }
 
-    /// Get hotpath symbols
+    /// Get hotpath symbols (symbols with many callers)
     pub fn hotpaths(&self) -> impl Iterator<Item = &str> {
-        self.cache.hotpaths.iter().map(|h| h.symbol.as_str())
-    }
-
-    /// Get deprecated symbols/files
-    pub fn deprecated(&self) -> &[String] {
-        &self.cache.stability.deprecated
-    }
-
-    /// Get security-sensitive symbols
-    pub fn security_sensitive(&self) -> impl Iterator<Item = &str> {
-        self.cache.security.auth_required.iter()
-            .chain(self.cache.security.audit_logged.iter())
-            .chain(self.cache.security.credentials.iter())
-            .map(|s| s.as_str())
+        // Compute hotpaths from call graph
+        self.cache.graph.as_ref()
+            .map(|g| {
+                let mut callee_counts: Vec<(&String, usize)> = g.reverse.iter()
+                    .map(|(k, v)| (k, v.len()))
+                    .collect();
+                callee_counts.sort_by(|a, b| b.1.cmp(&a.1));
+                callee_counts.into_iter()
+                    .take(10)
+                    .map(|(k, _)| k.as_str())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+            .into_iter()
     }
 }

@@ -1,5 +1,5 @@
 //! @acp:module "Parser"
-//! @acp:summary "Source code parsing and annotation extraction"
+//! @acp:summary "Source code parsing and annotation extraction (schema-compliant)"
 //! @acp:domain cli
 //! @acp:layer service
 //!
@@ -8,35 +8,9 @@
 
 use std::path::Path;
 
-use crate::cache::{FileEntry, SymbolEntry, SymbolType, Stability};
+use crate::cache::{FileEntry, SymbolEntry, SymbolType, Visibility};
 use crate::error::{AcpError, Result};
-
-/// @acp:summary "Supported programming languages"
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Language {
-    TypeScript,
-    JavaScript,
-    Rust,
-    Python,
-    Go,
-    Java,
-}
-
-impl Language {
-    /// @acp:summary "Detect language from file extension"
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
-        let ext = path.as_ref().extension()?.to_str()?;
-        match ext {
-            "ts" | "tsx" => Some(Self::TypeScript),
-            "js" | "jsx" | "mjs" => Some(Self::JavaScript),
-            "rs" => Some(Self::Rust),
-            "py" => Some(Self::Python),
-            "go" => Some(Self::Go),
-            "java" => Some(Self::Java),
-            _ => None,
-        }
-    }
-}
+use crate::index::detect_language;
 
 /// @acp:summary "Result of parsing a source file"
 #[derive(Debug, Clone)]
@@ -61,7 +35,9 @@ impl Parser {
     pub fn parse<P: AsRef<Path>>(&self, path: P) -> Result<ParseResult> {
         let path = path.as_ref();
         let content = std::fs::read_to_string(path)?;
-        let _lang = Language::from_path(path)
+        let file_path = path.to_string_lossy().to_string();
+
+        let language = detect_language(&file_path)
             .ok_or_else(|| AcpError::UnsupportedLanguage(
                 path.extension()
                     .map(|e| e.to_string_lossy().to_string())
@@ -69,20 +45,21 @@ impl Parser {
             ))?;
 
         let lines = content.lines().count();
-        let file_name = path.file_stem()
+        let _file_name = path.file_stem()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_default();
-        let file_path = path.to_string_lossy().to_string();
 
         // Parse @acp: annotations from source
         let annotations = self.parse_annotations(&content);
 
         // Extract file-level metadata from annotations
-        let mut module_name = file_name.clone();
+        let mut module_name = None;
+        let mut file_summary = None;
         let mut domains = vec![];
         let mut layer = None;
         let mut symbols = vec![];
-        let mut symbol_names = vec![];
+        let mut exports = vec![];
+        let mut imports = vec![];
         let mut calls = vec![];
 
         // Track current symbol context for multi-line annotations
@@ -92,7 +69,17 @@ impl Parser {
             match ann.name.as_str() {
                 "module" => {
                     if let Some(val) = &ann.value {
-                        module_name = val.trim_matches('"').to_string();
+                        module_name = Some(val.trim_matches('"').to_string());
+                    }
+                }
+                "summary" => {
+                    if let Some(ref mut builder) = current_symbol {
+                        if let Some(val) = &ann.value {
+                            builder.summary = Some(val.trim_matches('"').to_string());
+                        }
+                    } else if let Some(val) = &ann.value {
+                        // File-level summary
+                        file_summary = Some(val.trim_matches('"').to_string());
                     }
                 }
                 "domain" => {
@@ -109,7 +96,7 @@ impl Parser {
                     // Save previous symbol if exists
                     if let Some(builder) = current_symbol.take() {
                         let sym = builder.build(&file_path);
-                        symbol_names.push(sym.name.clone());
+                        exports.push(sym.name.clone());
                         symbols.push(sym);
                     }
                     // Start new symbol
@@ -117,14 +104,8 @@ impl Parser {
                         current_symbol = Some(SymbolBuilder::new(
                             val.trim_matches('"').to_string(),
                             ann.line,
+                            &file_path,
                         ));
-                    }
-                }
-                "summary" => {
-                    if let Some(ref mut builder) = current_symbol {
-                        if let Some(val) = &ann.value {
-                            builder.summary = Some(val.trim_matches('"').to_string());
-                        }
                     }
                 }
                 "calls" => {
@@ -138,6 +119,15 @@ impl Parser {
                         }
                     }
                 }
+                "imports" | "depends" => {
+                    if let Some(val) = &ann.value {
+                        let import_list: Vec<String> = val
+                            .split(',')
+                            .map(|s| s.trim().trim_matches('"').to_string())
+                            .collect();
+                        imports.extend(import_list);
+                    }
+                }
                 _ => {}
             }
         }
@@ -148,7 +138,7 @@ impl Parser {
             if !sym.calls.is_empty() {
                 calls.push((sym.name.clone(), sym.calls.clone()));
             }
-            symbol_names.push(sym.name.clone());
+            exports.push(sym.name.clone());
             symbols.push(sym);
         }
 
@@ -161,17 +151,15 @@ impl Parser {
 
         let file = FileEntry {
             path: file_path,
-            module: module_name,
             lines,
+            language,
+            exports,
+            imports,
+            module: module_name,
+            summary: file_summary,
             domains,
             layer,
-            stability: Stability::Active,
-            depends: vec![],
-            exports: symbol_names.clone(),
-            symbols: symbol_names,
-            keywords: vec![],
-            hash: Some(format!("{:x}", md5::compute(&content))),
-            guardrails: None,
+            stability: None,
         };
 
         Ok(ParseResult {
@@ -217,15 +205,18 @@ pub struct Annotation {
 /// Helper to build SymbolEntry from annotations
 struct SymbolBuilder {
     name: String,
+    qualified_name: String,
     line: usize,
     summary: Option<String>,
     calls: Vec<String>,
 }
 
 impl SymbolBuilder {
-    fn new(name: String, line: usize) -> Self {
+    fn new(name: String, line: usize, file_path: &str) -> Self {
+        let qualified_name = format!("{}:{}", file_path, name);
         Self {
             name,
+            qualified_name,
             line,
             summary: None,
             calls: vec![],
@@ -235,19 +226,17 @@ impl SymbolBuilder {
     fn build(self, file_path: &str) -> SymbolEntry {
         SymbolEntry {
             name: self.name,
-            fqn: None,
-            symbol_type: SymbolType::Fn,
+            qualified_name: self.qualified_name,
+            symbol_type: SymbolType::Function,
             file: file_path.to_string(),
             lines: [self.line, self.line + 10], // Approximate
-            summary: self.summary,
-            signature: None,
             exported: true,
+            signature: None,
+            summary: self.summary,
             async_fn: false,
+            visibility: Visibility::Public,
             calls: self.calls,
-            throws: vec![],
-            flags: vec![],
-            side_effects: vec![],
-            complexity: None,
+            called_by: vec![], // Populated later by indexer
         }
     }
 }

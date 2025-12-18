@@ -53,3 +53,5 @@ examples/**/.acp.vars.json
 # Documentation build
 docs/_build/
 site/
+# ACP generated output
+.acp/

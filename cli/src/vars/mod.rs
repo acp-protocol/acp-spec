@@ -1,5 +1,5 @@
 //! @acp:module "Variables"
-//! @acp:summary "Variable system with inheritance and expansion for token-efficient macros"
+//! @acp:summary "Variable system for token-efficient macros (schema-compliant)"
 //! @acp:domain cli
 //! @acp:layer model
 //! @acp:stability stable
@@ -12,9 +12,7 @@ pub mod presets;
 pub use resolver::{VarResolver, VarReference};
 pub use expander::{VarExpander, ExpansionMode, ExpansionResult, InheritanceChain};
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -22,21 +20,32 @@ use std::path::Path;
 
 use crate::error::Result;
 
-/// @acp:summary "Complete vars file structure for .acp.vars.json"
+fn default_vars_schema() -> String {
+    "https://acp-protocol.dev/schemas/v1/vars.schema.json".to_string()
+}
+
+/// @acp:summary "Complete vars file structure for .acp.vars.json (schema-compliant)"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VarsFile {
+    /// JSON Schema URL for validation
+    #[serde(rename = "$schema", default = "default_vars_schema")]
+    pub schema: String,
+    /// ACP specification version (required)
     pub version: String,
-    pub generated_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub project: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub stats: Option<VarsStats>,
-    pub vars: HashMap<String, VarEntry>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub index: Option<VarsIndex>,
+    /// Map of variable names to variable entries (required)
+    pub variables: HashMap<String, VarEntry>,
 }
 
 impl VarsFile {
+    /// Create a new empty vars file
+    pub fn new() -> Self {
+        Self {
+            schema: default_vars_schema(),
+            version: crate::VERSION.to_string(),
+            variables: HashMap::new(),
+        }
+    }
+
     /// Load from JSON file
     pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::open(path)?;
@@ -52,158 +61,78 @@ impl VarsFile {
         Ok(())
     }
 
-    /// Build indexes after loading/modification
-    pub fn build_index(&mut self) {
-        let mut by_category: HashMap<String, Vec<String>> = HashMap::new();
-        let mut by_tag: HashMap<String, Vec<String>> = HashMap::new();
-        let mut inheritance: HashMap<String, Vec<String>> = HashMap::new();
-
-        for (name, var) in &self.vars {
-            // Category index
-            by_category
-                .entry(var.category.to_string())
-                .or_default()
-                .push(name.clone());
-
-            // Tag index
-            for tag in &var.tags {
-                by_tag
-                    .entry(tag.clone())
-                    .or_default()
-                    .push(name.clone());
-            }
-
-            // Inheritance index
-            if !var.refs.is_empty() {
-                inheritance.insert(name.clone(), var.refs.clone());
-            }
-        }
-
-        self.index = Some(VarsIndex {
-            by_category,
-            by_tag,
-            inheritance,
-        });
-
-        // Update stats
-        self.stats = Some(VarsStats {
-            total_vars: self.vars.len(),
-            total_tokens: self.vars.values().map(|v| v.tokens.unwrap_or(0)).sum(),
-            by_category: self.index.as_ref()
-                .map(|i| i.by_category.iter()
-                    .map(|(k, v)| (k.clone(), v.len()))
-                    .collect())
-                .unwrap_or_default(),
-        });
+    /// Add a variable entry
+    pub fn add_variable(&mut self, name: String, entry: VarEntry) {
+        self.variables.insert(name, entry);
     }
 }
 
-/// @acp:summary "Statistics about the vars file"
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VarsStats {
-    pub total_vars: usize,
-    pub total_tokens: usize,
-    #[serde(default)]
-    pub by_category: HashMap<String, usize>,
+impl Default for VarsFile {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
-/// @acp:summary "A single variable entry with metadata"
+/// @acp:summary "A single variable entry (schema-compliant)"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VarEntry {
-    pub name: String,
-    pub category: VarCategory,
+    /// Variable type (required)
+    #[serde(rename = "type")]
+    pub var_type: VarType,
+    /// Reference value - qualified name, path, etc. (required)
+    pub value: String,
+    /// Human-readable description (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub summary: Option<String>,
-    pub value: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tokens: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tokens_saved: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub source: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub lines: Option<[usize; 2]>,
-    #[serde(default)]
-    pub tags: Vec<String>,
-    #[serde(default)]
-    pub refs: Vec<String>,
+    pub description: Option<String>,
 }
 
 impl VarEntry {
-    /// Get value as string (flattening if structured)
-    pub fn value_string(&self) -> String {
-        match &self.value {
-            Value::String(s) => s.clone(),
-            Value::Object(obj) => {
-                obj.iter()
-                    .map(|(k, v)| format!("{}:{}", k, value_to_string(v)))
-                    .collect::<Vec<_>>()
-                    .join("|")
-            }
-            _ => self.value.to_string(),
+    /// Create a new symbol variable
+    pub fn symbol(value: impl Into<String>, description: Option<String>) -> Self {
+        Self {
+            var_type: VarType::Symbol,
+            value: value.into(),
+            description,
+        }
+    }
+
+    /// Create a new file variable
+    pub fn file(value: impl Into<String>, description: Option<String>) -> Self {
+        Self {
+            var_type: VarType::File,
+            value: value.into(),
+            description,
+        }
+    }
+
+    /// Create a new domain variable
+    pub fn domain(value: impl Into<String>, description: Option<String>) -> Self {
+        Self {
+            var_type: VarType::Domain,
+            value: value.into(),
+            description,
         }
     }
 }
 
-/// @acp:summary "Convert JSON value to display string"
-pub fn value_to_string(v: &Value) -> String {
-    match v {
-        Value::String(s) => s.clone(),
-        Value::Array(arr) => arr.iter()
-            .map(value_to_string)
-            .collect::<Vec<_>>()
-            .join(","),
-        Value::Bool(b) => b.to_string(),
-        Value::Number(n) => n.to_string(),
-        _ => v.to_string(),
-    }
-}
-
-/// @acp:summary "Variable category classification"
+/// @acp:summary "Variable type (schema-compliant)"
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum VarCategory {
+pub enum VarType {
     Symbol,
     File,
     Domain,
-    Layer,
-    Arch,
-    Pattern,
-    Procedure,
-    Query,
-    Context,
-    Config,
-    Custom,
 }
 
-impl std::fmt::Display for VarCategory {
+impl std::fmt::Display for VarType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Self::Symbol => "symbol",
             Self::File => "file",
             Self::Domain => "domain",
-            Self::Layer => "layer",
-            Self::Arch => "arch",
-            Self::Pattern => "pattern",
-            Self::Procedure => "procedure",
-            Self::Query => "query",
-            Self::Context => "context",
-            Self::Config => "config",
-            Self::Custom => "custom",
         };
         write!(f, "{}", s)
     }
-}
-
-/// @acp:summary "Lookup indexes for fast variable access"
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct VarsIndex {
-    #[serde(default)]
-    pub by_category: HashMap<String, Vec<String>>,
-    #[serde(default)]
-    pub by_tag: HashMap<String, Vec<String>>,
-    #[serde(default)]
-    pub inheritance: HashMap<String, Vec<String>>,
 }
 
 /// @acp:summary "Estimate token count from text length"
@@ -227,12 +156,9 @@ mod tests {
     #[test]
     fn test_find_references() {
         let vars_file = VarsFile {
+            schema: default_vars_schema(),
             version: "1.0.0".to_string(),
-            generated_at: Utc::now(),
-            project: None,
-            stats: None,
-            vars: HashMap::new(),
-            index: None,
+            variables: HashMap::new(),
         };
         let resolver = VarResolver::new(vars_file);
 
@@ -241,5 +167,20 @@ mod tests {
         assert_eq!(refs[0].name, "SYM_TEST");
         assert_eq!(refs[1].name, "ARCH_FLOW");
         assert_eq!(refs[1].modifier, Some("value".to_string()));
+    }
+
+    #[test]
+    fn test_vars_roundtrip() {
+        let mut vars_file = VarsFile::new();
+        vars_file.add_variable(
+            "SYM_TEST".to_string(),
+            VarEntry::symbol("test.rs:test_fn", Some("Test function".to_string())),
+        );
+
+        let json = serde_json::to_string_pretty(&vars_file).unwrap();
+        let parsed: VarsFile = serde_json::from_str(&json).unwrap();
+
+        assert!(parsed.variables.contains_key("SYM_TEST"));
+        assert_eq!(parsed.variables["SYM_TEST"].var_type, VarType::Symbol);
     }
 }

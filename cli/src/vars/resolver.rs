@@ -6,7 +6,7 @@
 use regex::Regex;
 use std::collections::HashMap;
 
-use super::{VarCategory, VarEntry, VarsFile};
+use super::{VarType, VarEntry, VarsFile};
 
 /// @acp:summary "Resolves variable references from a vars file"
 pub struct VarResolver {
@@ -18,7 +18,7 @@ impl VarResolver {
     /// Create a new resolver from a vars file
     pub fn new(vars_file: VarsFile) -> Self {
         Self {
-            vars: vars_file.vars,
+            vars: vars_file.variables,
             var_pattern: Regex::new(r"\$([A-Z][A-Z0-9_]+)(?:\.(\w+))?").unwrap(),
         }
     }
@@ -42,19 +42,11 @@ impl VarResolver {
             .collect()
     }
 
-    /// Get variables by category
-    pub fn by_category(&self, category: VarCategory) -> Vec<&VarEntry> {
+    /// Get variables by type
+    pub fn by_type(&self, var_type: VarType) -> Vec<&VarEntry> {
         self.vars
             .values()
-            .filter(|v| v.category == category)
-            .collect()
-    }
-
-    /// Get variables by tag
-    pub fn by_tag(&self, tag: &str) -> Vec<&VarEntry> {
-        self.vars
-            .values()
-            .filter(|v| v.tags.contains(&tag.to_string()))
+            .filter(|v| v.var_type == var_type)
             .collect()
     }
 
@@ -64,9 +56,8 @@ impl VarResolver {
         self.vars
             .values()
             .filter(|v| {
-                v.name.to_lowercase().contains(&q)
-                    || v.summary.as_ref().map(|s| s.to_lowercase().contains(&q)).unwrap_or(false)
-                    || v.tags.iter().any(|t| t.to_lowercase().contains(&q))
+                v.value.to_lowercase().contains(&q)
+                    || v.description.as_ref().map(|s| s.to_lowercase().contains(&q)).unwrap_or(false)
             })
             .collect()
     }

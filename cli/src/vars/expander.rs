@@ -3,12 +3,11 @@
 //! @acp:domain cli
 //! @acp:layer service
 
-use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
-use super::{capitalize, estimate_tokens, value_to_string, VarEntry, VarResolver};
+use super::{capitalize, estimate_tokens, VarEntry, VarResolver};
 
-/// @acp:summary "Expands variable references with caching and inheritance"
+/// @acp:summary "Expands variable references with caching"
 pub struct VarExpander {
     resolver: VarResolver,
     expansion_cache: HashMap<String, String>,
@@ -23,7 +22,7 @@ impl VarExpander {
         }
     }
 
-    /// Expand a single variable, resolving inheritance
+    /// Expand a single variable
     pub fn expand_var(
         &mut self,
         name: &str,
@@ -43,7 +42,7 @@ impl VarExpander {
         let var = self.resolver.get(name)?;
         visited.insert(name.to_string());
 
-        let mut value = var.value_string();
+        let mut value = var.value.clone();
 
         // Recursively expand nested references
         if max_depth > 0 {
@@ -83,7 +82,7 @@ impl VarExpander {
                 chains.push(chain);
 
                 // Format based on mode
-                let replacement = self.format_var(&var, r.modifier.as_deref(), mode);
+                let replacement = self.format_var(&r.name, &var, r.modifier.as_deref(), mode);
                 expanded = format!(
                     "{}{}{}",
                     &expanded[..r.start],
@@ -106,91 +105,61 @@ impl VarExpander {
         }
     }
 
-    /// Get full inheritance chain for a variable
+    /// Get inheritance chain for a variable (simplified - no refs in new schema)
     pub fn get_inheritance_chain(&self, name: &str) -> InheritanceChain {
-        let mut chain = vec![name.to_string()];
-        let mut visited = HashSet::new();
-        visited.insert(name.to_string());
-
-        self.build_chain(name, &mut chain, &mut visited);
-
         InheritanceChain {
             root: name.to_string(),
-            chain: chain.clone(),
-            depth: chain.len() - 1,
+            chain: vec![name.to_string()],
+            depth: 0,
             has_cycle: false,
         }
     }
 
-    fn build_chain(&self, name: &str, chain: &mut Vec<String>, visited: &mut HashSet<String>) {
-        if let Some(var) = self.resolver.get(name) {
-            for ref_name in &var.refs {
-                if !visited.contains(ref_name) {
-                    visited.insert(ref_name.clone());
-                    chain.push(ref_name.clone());
-                    self.build_chain(ref_name, chain, visited);
-                }
-            }
-        }
-    }
-
-    fn format_var(&mut self, var: &VarEntry, modifier: Option<&str>, mode: ExpansionMode) -> String {
+    fn format_var(&mut self, name: &str, var: &VarEntry, modifier: Option<&str>, mode: ExpansionMode) -> String {
         // Handle modifier
         if let Some(m) = modifier {
             return match m {
-                "summary" => var.summary.clone().unwrap_or_default(),
-                "value" => var.value_string(),
-                "source" => var.source.clone().unwrap_or_default(),
-                "lines" => var.lines.map(|l| format!("{}-{}", l[0], l[1])).unwrap_or_default(),
-                _ => var.value_string(),
+                "description" | "summary" => var.description.clone().unwrap_or_default(),
+                "value" => var.value.clone(),
+                "type" => var.var_type.to_string(),
+                _ => var.value.clone(),
             };
         }
 
         // Handle expansion mode
         match mode {
-            ExpansionMode::None => format!("${}", var.name),
-            ExpansionMode::Summary => var.summary.clone().unwrap_or_else(|| var.name.clone()),
+            ExpansionMode::None => format!("${}", name),
+            ExpansionMode::Summary => var.description.clone().unwrap_or_else(|| name.to_string()),
             ExpansionMode::Inline => {
                 let mut visited = HashSet::new();
-                self.expand_var(&var.name, 3, &mut visited)
-                    .unwrap_or_else(|| var.value_string())
+                self.expand_var(name, 3, &mut visited)
+                    .unwrap_or_else(|| var.value.clone())
             }
             ExpansionMode::Annotated => {
                 format!(
                     "**${}** → {}",
-                    var.name,
-                    self.humanize_value(&var.value_string())
+                    name,
+                    self.humanize_value(&var.value)
                 )
             }
-            ExpansionMode::Block => self.format_block(var),
+            ExpansionMode::Block => self.format_block(name, var),
             ExpansionMode::Interactive => {
                 format!(
-                    r#"<acp-var name="{}" summary="{}">{}</acp-var>"#,
-                    var.name,
-                    var.summary.as_deref().unwrap_or(&var.name),
-                    var.summary.as_deref().unwrap_or(&var.name)
+                    r#"<acp-var name="{}" description="{}">{}</acp-var>"#,
+                    name,
+                    var.description.as_deref().unwrap_or(name),
+                    var.description.as_deref().unwrap_or(name)
                 )
             }
         }
     }
 
-    fn format_block(&self, var: &VarEntry) -> String {
+    fn format_block(&self, name: &str, var: &VarEntry) -> String {
         let mut lines = Vec::new();
-        lines.push(format!("> **{}**: {}", var.name, var.summary.as_deref().unwrap_or("")));
+        lines.push(format!("> **{}**: {}", name, var.description.as_deref().unwrap_or("")));
         lines.push(">".to_string());
-
-        if let Value::Object(obj) = &var.value {
-            for (k, v) in obj {
-                lines.push(format!("> - **{}**: {}", k, value_to_string(v)));
-            }
-        } else {
-            lines.push(format!("> {}", var.value_string()));
-        }
-
-        if let Some(source) = &var.source {
-            lines.push(format!("> - *Source*: `{}`", source));
-        }
-
+        lines.push(format!("> - **type**: {}", var.var_type));
+        lines.push(format!("> - **value**: {}", var.value));
         lines.join("\n")
     }
 
@@ -218,7 +187,7 @@ impl VarExpander {
 pub enum ExpansionMode {
     /// Keep $VAR as-is
     None,
-    /// Replace with summary only
+    /// Replace with description only
     Summary,
     /// Replace with full value inline
     Inline,

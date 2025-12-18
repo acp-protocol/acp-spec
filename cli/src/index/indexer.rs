@@ -1,5 +1,5 @@
 //! @acp:module "Indexer"
-//! @acp:summary "Codebase indexing and cache generation"
+//! @acp:summary "Codebase indexing and cache generation (schema-compliant)"
 //! @acp:domain cli
 //! @acp:layer service
 //!
@@ -7,16 +7,18 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::fs;
 
+use chrono::{DateTime, Utc};
 use rayon::prelude::*;
 use walkdir::WalkDir;
 use glob::Pattern;
 
-use crate::cache::{Cache, CacheBuilder, DomainEntry};
+use crate::cache::{Cache, CacheBuilder, DomainEntry, Language};
 use crate::config::Config;
 use crate::error::Result;
 use crate::parse::Parser;
-use crate::vars::VarsFile;
+use crate::vars::{VarsFile, VarEntry};
 
 /// @acp:summary "Codebase indexer with parallel file processing"
 pub struct Indexer {
@@ -45,6 +47,20 @@ impl Indexer {
 
         // Find all matching files
         let files = self.find_files(root)?;
+
+        // Add source_files with modification times
+        for file_path in &files {
+            if let Ok(metadata) = fs::metadata(file_path) {
+                if let Ok(modified) = metadata.modified() {
+                    let modified_dt: DateTime<Utc> = modified.into();
+                    let relative_path = Path::new(file_path)
+                        .strip_prefix(root)
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_else(|_| file_path.clone());
+                    builder = builder.add_source_file(relative_path, modified_dt);
+                }
+            }
+        }
 
         // Parse files in parallel using rayon
         let results: Vec<_> = files
@@ -87,8 +103,7 @@ impl Indexer {
                 name: name.clone(),
                 files: files.clone(),
                 symbols: vec![],
-                file_count: files.len(),
-                symbol_count: 0,
+                description: None,
             });
         }
 
@@ -142,94 +157,77 @@ impl Indexer {
         Ok(files)
     }
 
-    /// @acp:summary "Generate vars file from cache"
+    /// @acp:summary "Generate vars file from cache (schema-compliant)"
     pub fn generate_vars(&self, cache: &Cache) -> VarsFile {
-        use crate::vars::{VarEntry, VarCategory, VarsFile};
-        use chrono::Utc;
-        use serde_json::json;
-
-        let mut vars = std::collections::HashMap::new();
+        let mut vars_file = VarsFile::new();
 
         // Generate symbol vars
         for (name, symbol) in &cache.symbols {
             if symbol.exported {
                 let var_name = format!("SYM_{}", name.to_uppercase().replace('.', "_"));
-                vars.insert(var_name.clone(), VarEntry {
-                    name: var_name,
-                    category: VarCategory::Symbol,
-                    summary: symbol.summary.clone(),
-                    value: json!({
-                        "sym": name,
-                        "file": symbol.file,
-                        "lines": symbol.lines,
-                        "async": symbol.async_fn,
-                        "calls": symbol.calls,
-                        "throws": symbol.throws,
-                        "flags": symbol.flags,
-                    }),
-                    tokens: Some(20),
-                    tokens_saved: Some(40),
-                    source: Some(symbol.file.clone()),
-                    lines: Some(symbol.lines),
-                    tags: vec![name.to_lowercase()],
-                    refs: vec![],
-                });
+                vars_file.add_variable(
+                    var_name,
+                    VarEntry::symbol(
+                        symbol.qualified_name.clone(),
+                        symbol.summary.clone(),
+                    ),
+                );
             }
         }
 
         // Generate domain vars
         for (name, domain) in &cache.domains {
             let var_name = format!("DOM_{}", name.to_uppercase().replace('-', "_"));
-            vars.insert(var_name.clone(), VarEntry {
-                name: var_name,
-                category: VarCategory::Domain,
-                summary: Some(format!("Domain: {} ({} files)", name, domain.file_count)),
-                value: json!({
-                    "domain": name,
-                    "files": domain.files,
-                    "symbols": domain.symbols,
-                    "file_count": domain.file_count,
-                }),
-                tokens: Some(35),
-                tokens_saved: Some(150),
-                source: None,
-                lines: None,
-                tags: vec![name.to_lowercase()],
-                refs: vec![],
-            });
+            vars_file.add_variable(
+                var_name,
+                VarEntry::domain(
+                    name.clone(),
+                    Some(format!("Domain: {} ({} files)", name, domain.files.len())),
+                ),
+            );
         }
 
-        // Generate layer vars
-        for (name, files) in &cache.layers {
-            let var_name = format!("LAY_{}", name.to_uppercase());
-            vars.insert(var_name.clone(), VarEntry {
-                name: var_name,
-                category: VarCategory::Layer,
-                summary: Some(format!("Layer: {} ({} files)", name, files.len())),
-                value: json!({
-                    "layer": name,
-                    "files": files,
-                    "count": files.len(),
-                }),
-                tokens: Some(40),
-                tokens_saved: Some(200),
-                source: None,
-                lines: None,
-                tags: vec![name.to_lowercase()],
-                refs: vec![],
-            });
+        // Generate file vars for important files
+        for (path, file) in &cache.files {
+            // Only generate vars for files with modules or summaries
+            if file.module.is_some() || file.summary.is_some() {
+                let var_name = format!("FILE_{}",
+                    path.replace('/', "_")
+                        .replace('.', "_")
+                        .to_uppercase());
+                vars_file.add_variable(
+                    var_name,
+                    VarEntry::file(
+                        path.clone(),
+                        file.summary.clone().or_else(|| file.module.clone()),
+                    ),
+                );
+            }
         }
 
-        let mut vars_file = VarsFile {
-            version: crate::VERSION.to_string(),
-            generated_at: Utc::now(),
-            project: Some(cache.project.name.clone()),
-            stats: None,
-            vars,
-            index: None,
-        };
-
-        vars_file.build_index();
         vars_file
+    }
+}
+
+/// Detect language from file extension
+pub fn detect_language(path: &str) -> Option<Language> {
+    let path = Path::new(path);
+    let ext = path.extension()?.to_str()?;
+
+    match ext.to_lowercase().as_str() {
+        "ts" | "tsx" => Some(Language::Typescript),
+        "js" | "jsx" | "mjs" | "cjs" => Some(Language::Javascript),
+        "py" | "pyw" => Some(Language::Python),
+        "rs" => Some(Language::Rust),
+        "go" => Some(Language::Go),
+        "java" => Some(Language::Java),
+        "cs" => Some(Language::CSharp),
+        "cpp" | "cxx" | "cc" | "hpp" | "hxx" => Some(Language::Cpp),
+        "c" | "h" => Some(Language::C),
+        "rb" => Some(Language::Ruby),
+        "php" => Some(Language::Php),
+        "swift" => Some(Language::Swift),
+        "kt" | "kts" => Some(Language::Kotlin),
+        _ => None,
     }
 }
