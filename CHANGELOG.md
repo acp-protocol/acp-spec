@@ -8,8 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Formal Grammar**: W3C EBNF grammar for annotations with railroad diagrams (`spec/grammar/`)
+- **Specification Examples**: Minimal, complete, and edge-case examples (`spec/examples/`)
+- **CLI Implementation Guide**: Comprehensive Rust CLI development guide (`docs/rust-cli/`)
+- **GitHub Issue Templates**: Bug reports, feature requests, RFCs, documentation, questions
 - Initial public release preparation
 - JSON schemas for Schema Store submission
+
+### Changed
+- **CLI Architecture**: Refactored into modular structure
+  - Split `constraints.rs` (1425 lines) → `constraints/` module (4 files)
+  - Split `vars.rs` (540 lines) → `vars/` module (4 files)
+  - Organized cache, config, index, parse into submodules
+- **CLI README**: Complete rewrite with accurate command documentation for all 10 commands
+- **Specification Chapters**: Renumbered to 01-12 sequential format with updated content
 
 ---
 

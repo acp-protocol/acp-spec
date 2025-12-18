@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://acp-protocol.dev/docs
+    about: Check the documentation before asking questions
+  - name: 💬 Discussions
+    url: https://github.com/acp-protocol/acp-spec/discussions
+    about: For general discussions, ideas, and community chat
+  - name: 🔒 Security Issues
+    url: https://github.com/acp-protocol/acp-spec/security/policy
+    about: Report security vulnerabilities privately
+  - name: 📜 RFC Process
+    url: https://github.com/acp-protocol/acp-spec/blob/main/rfcs/TEMPLATE.md
+    about: Learn about the RFC process for major changes

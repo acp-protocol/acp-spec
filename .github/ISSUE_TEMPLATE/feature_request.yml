@@ -1,0 +1,242 @@
+name: ✨ Feature Request
+description: Propose a new feature or enhancement for ACP
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please fill out the sections below to help us understand your proposal.
+        
+        **Note:** For significant changes, consider submitting an RFC instead of a feature request.
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What type of feature is this?
+      options:
+        - New annotation namespace
+        - New annotation parameter
+        - New constraint type
+        - New lock level
+        - New variable type or modifier
+        - New query method
+        - New CLI command or flag
+        - New MCP tool or resource
+        - Schema enhancement
+        - Documentation improvement
+        - Performance optimization
+        - Developer experience (DX)
+        - Integration (new tool/platform)
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of ACP would this affect?
+      multiple: true
+      options:
+        - Specification (ACP-1.0.md)
+        - CLI (acp command)
+        - MCP Server (acp-mcp-server)
+        - JSON Schemas
+        - Documentation
+        - VS Code Extension
+        - Multiple components
+    validations:
+      required: true
+
+  - type: dropdown
+    id: spec-chapter
+    attributes:
+      label: Specification Chapter
+      description: If this affects the specification, which chapter(s)?
+      multiple: true
+      options:
+        - N/A - Not specification related
+        - "01 - Introduction"
+        - "02 - Terminology"
+        - "03 - Cache Format"
+        - "04 - Config Format"
+        - "05 - Annotations"
+        - "06 - Constraints"
+        - "07 - Variables"
+        - "08 - Inheritance & Cascade"
+        - "09 - Discovery"
+        - "10 - Querying"
+        - "11 - Versioning"
+        - "12 - Debug Sessions"
+        - New chapter needed
+    validations:
+      required: true
+
+  - type: dropdown
+    id: breaking-change
+    attributes:
+      label: Breaking Change
+      description: Would this be a breaking change?
+      options:
+        - "No - Fully backward compatible"
+        - "Minor - New optional features only"
+        - "Yes - Requires major version bump"
+        - "Unsure - Needs analysis"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - "Nice to have"
+        - "Would improve my workflow"
+        - "Important for my use case"
+        - "Critical - Blocking adoption"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What pain point does it address?
+      placeholder: |
+        Currently, when I try to...
+        I have to...
+        This is problematic because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed solution in detail
+      placeholder: |
+        I propose adding...
+        This would work by...
+    validations:
+      required: true
+
+  - type: textarea
+    id: syntax
+    attributes:
+      label: Proposed Syntax
+      description: If this involves new annotations or syntax, show examples
+      render: typescript
+      placeholder: |
+        /**
+         * @acp:new-feature value
+         * @acp:new-feature-param key=value
+         */
+        function example() {}
+    validations:
+      required: false
+
+  - type: textarea
+    id: schema
+    attributes:
+      label: Proposed Schema Changes
+      description: If this affects JSON schemas, show the proposed structure
+      render: json
+      placeholder: |
+        {
+          "new_field": {
+            "type": "string",
+            "description": "Description of new field"
+          }
+        }
+    validations:
+      required: false
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases
+      description: Provide specific use cases that would benefit from this feature
+      placeholder: |
+        1. As a developer, I want to...
+        2. When working with..., I need to...
+        3. In CI/CD pipelines, this would allow...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternatives have you considered?
+      placeholder: |
+        - Alternative A: ... (rejected because...)
+        - Alternative B: ... (rejected because...)
+        - Workaround: Currently I do... but it's not ideal because...
+    validations:
+      required: false
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility Considerations
+      description: How would this affect existing users and implementations?
+      placeholder: |
+        - Existing caches would...
+        - Tools that don't support this would...
+        - Migration path would be...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: implementation
+    attributes:
+      label: Implementation
+      description: Are you willing to help implement this feature?
+      options:
+        - "No - Just suggesting"
+        - "Maybe - Could help with testing"
+        - "Yes - Willing to submit PR for implementation"
+        - "Yes - Willing to write RFC and implement"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: rfc-needed
+    attributes:
+      label: RFC Consideration
+      description: Does this feature need an RFC?
+      options:
+        - label: This is a significant change that should go through the RFC process
+          required: false
+        - label: I am willing to write an RFC for this feature
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, mockups, or references
+      placeholder: |
+        - Related to issue #...
+        - Similar to how X tool does...
+        - Reference: [link]
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues and RFCs to ensure this hasn't been proposed
+          required: true
+        - label: I have considered backward compatibility implications
+          required: true
+        - label: I have provided concrete use cases
+          required: true

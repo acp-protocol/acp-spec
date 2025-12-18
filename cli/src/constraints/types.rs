@@ -1,34 +1,30 @@
-//! Constraint system for AI behavioral guardrails
-//!
-//! Provides types and logic for:
-//! - Style constraints (formatting rules)
-//! - Mutation constraints (what can be changed)
-//! - Experimental/hack tracking
-//! - Debug session management
-//! - Quality gates
+//! @acp:module "Constraint Types"
+//! @acp:summary "Core constraint types for AI behavioral guardrails"
+//! @acp:domain cli
+//! @acp:layer model
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Complete constraint set for a scope
+/// @acp:summary "Complete constraint set for a scope"
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Constraints {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<StyleConstraint>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mutation: Option<MutationConstraint>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub behavior: Option<BehaviorModifier>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quality: Option<QualityGate>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecation: Option<DeprecationInfo>,
-    
+
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub references: Vec<Reference>,
 }
@@ -79,14 +75,14 @@ impl Constraints {
                 _ => {}
             }
         }
-        
+
         ModifyPermission::Allowed
     }
 
     /// Get requirements that must be met for changes
     pub fn get_requirements(&self) -> Vec<String> {
         let mut reqs = Vec::new();
-        
+
         if let Some(mutation) = &self.mutation {
             if mutation.requires_tests {
                 reqs.push("tests".to_string());
@@ -98,7 +94,7 @@ impl Constraints {
                 reqs.push("approval".to_string());
             }
         }
-        
+
         if let Some(quality) = &self.quality {
             if quality.tests_required {
                 reqs.push("tests".to_string());
@@ -107,13 +103,14 @@ impl Constraints {
                 reqs.push("security-review".to_string());
             }
         }
-        
+
         reqs.sort();
         reqs.dedup();
         reqs
     }
 }
 
+/// @acp:summary "Result of checking modification permission"
 #[derive(Debug, Clone)]
 pub enum ModifyPermission {
     Allowed,
@@ -121,65 +118,66 @@ pub enum ModifyPermission {
     Denied { reason: String },
 }
 
-/// Style/formatting constraints
+/// @acp:summary "Style/formatting constraints"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StyleConstraint {
     /// Style guide identifier (e.g., "tailwindcss-v4", "google-python")
     pub guide: String,
-    
+
     /// URL to authoritative documentation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reference: Option<String>,
-    
+
     /// Specific rules to follow
     #[serde(default)]
     pub rules: Vec<String>,
-    
+
     /// Linter config file to use
     #[serde(skip_serializing_if = "Option::is_none")]
     pub linter: Option<String>,
 }
 
-/// Mutation/modification constraints
+/// @acp:summary "Mutation/modification constraints"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MutationConstraint {
     /// Lock level
     #[serde(default)]
     pub level: LockLevel,
-    
+
     /// Reason for restriction
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    
+
     /// Contact for questions
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contact: Option<String>,
-    
+
     /// Requires human approval
     #[serde(default)]
     pub requires_approval: bool,
-    
+
     /// Requires tests for changes
     #[serde(default)]
     pub requires_tests: bool,
-    
+
     /// Requires documentation updates
     #[serde(default)]
     pub requires_docs: bool,
-    
+
     /// Maximum lines AI can change at once
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_lines_changed: Option<usize>,
-    
+
     /// Operations that are allowed
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allowed_operations: Option<Vec<String>>,
-    
+
     /// Operations that are forbidden
     #[serde(skip_serializing_if = "Option::is_none")]
     pub forbidden_operations: Option<Vec<String>>,
 }
 
+/// @acp:summary "Lock level for code modification"
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum LockLevel {
@@ -200,34 +198,35 @@ pub enum LockLevel {
     Experimental,
 }
 
-/// AI behavior modifiers
+/// @acp:summary "AI behavior modifiers"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BehaviorModifier {
     /// General approach
     #[serde(skip_serializing_if = "Option::is_none")]
     pub approach: Option<Approach>,
-    
+
     /// What to optimize for
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<Priority>,
-    
+
     /// Must explain all changes
     #[serde(default)]
     pub explain: bool,
-    
+
     /// Make incremental changes
     #[serde(default)]
     pub step_by_step: bool,
-    
+
     /// Verify changes before finalizing
     #[serde(default)]
     pub verify: bool,
-    
+
     /// Ask permission before each change
     #[serde(default)]
     pub ask_first: bool,
 }
 
+/// @acp:summary "AI approach strategy"
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Approach {
@@ -237,6 +236,7 @@ pub enum Approach {
     Comprehensive,
 }
 
+/// @acp:summary "Optimization priority"
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Priority {
@@ -247,62 +247,64 @@ pub enum Priority {
     Compatibility,
 }
 
-/// Quality requirements
+/// @acp:summary "Quality requirements"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityGate {
     #[serde(default)]
     pub tests_required: bool,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min_coverage: Option<f64>,
-    
+
     #[serde(default)]
     pub security_review: bool,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_complexity: Option<u32>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accessibility: Option<String>,
-    
+
     #[serde(default)]
     pub browser_support: Vec<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performance_budget: Option<PerformanceBudget>,
 }
 
+/// @acp:summary "Performance budget constraints"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformanceBudget {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_time_ms: Option<u64>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_memory_mb: Option<u64>,
 }
 
-/// Deprecation information
+/// @acp:summary "Deprecation information"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeprecationInfo {
     #[serde(default)]
     pub deprecated: bool,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub since: Option<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub removal_version: Option<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub replacement: Option<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub migration_guide: Option<String>,
-    
+
     #[serde(default)]
     pub action: DeprecationAction,
 }
 
+/// @acp:summary "Deprecation action to take"
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DeprecationAction {
@@ -313,48 +315,48 @@ pub enum DeprecationAction {
     Block,
 }
 
-/// Reference to documentation
+/// @acp:summary "Reference to documentation"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Reference {
     pub url: String,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    
+
     /// Whether AI should fetch and read this
     #[serde(default)]
     pub fetch: bool,
 }
 
-/// Experimental/hack marker
+/// @acp:summary "Experimental/hack marker"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HackMarker {
     pub id: String,
-    
+
     #[serde(rename = "type")]
     pub hack_type: HackType,
-    
+
     pub file: String,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line: Option<usize>,
-    
+
     pub created_at: DateTime<Utc>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<String>,
-    
+
     pub reason: String,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ticket: Option<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires: Option<DateTime<Utc>>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub original_code: Option<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub revert_instructions: Option<String>,
 }
@@ -365,6 +367,7 @@ impl HackMarker {
     }
 }
 
+/// @acp:summary "Type of hack/workaround"
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum HackType {
@@ -376,25 +379,25 @@ pub enum HackType {
     TestOnly,
 }
 
-/// Debug session for tracking AI troubleshooting
+/// @acp:summary "Debug session for tracking AI troubleshooting"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DebugSession {
     pub id: String,
     pub started_at: DateTime<Utc>,
     pub problem: String,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hypothesis: Option<String>,
-    
+
     #[serde(default)]
     pub attempts: Vec<DebugAttempt>,
-    
+
     #[serde(default)]
     pub status: DebugStatus,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolution: Option<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolved_at: Option<DateTime<Utc>>,
 }
@@ -434,7 +437,7 @@ impl DebugSession {
         if let Some(attempt) = self.attempts.iter_mut().find(|a| a.attempt_id == attempt_id) {
             attempt.result = result;
             attempt.observations = observations;
-            
+
             if result == DebugResult::Success {
                 attempt.keep = true;
             }
@@ -465,6 +468,7 @@ impl DebugSession {
     }
 }
 
+/// @acp:summary "Debug session status"
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DebugStatus {
@@ -475,32 +479,34 @@ pub enum DebugStatus {
     Abandoned,
 }
 
+/// @acp:summary "A single debug attempt"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DebugAttempt {
     pub attempt_id: usize,
     pub timestamp: DateTime<Utc>,
     pub hypothesis: String,
     pub change: String,
-    
+
     #[serde(default)]
     pub files_modified: Vec<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub diff: Option<String>,
-    
+
     #[serde(default)]
     pub result: DebugResult,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub observations: Option<String>,
-    
+
     #[serde(default)]
     pub keep: bool,
-    
+
     #[serde(default)]
     pub reverted: bool,
 }
 
+/// @acp:summary "Debug attempt result"
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DebugResult {
@@ -511,21 +517,21 @@ pub enum DebugResult {
     Unknown,
 }
 
-/// Constraint index in cache
+/// @acp:summary "Constraint index in cache"
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ConstraintIndex {
     /// Constraints by file path
     #[serde(default)]
     pub by_file: HashMap<String, Constraints>,
-    
+
     /// Active hack markers
     #[serde(default)]
     pub hacks: Vec<HackMarker>,
-    
+
     /// Active debug sessions
     #[serde(default)]
     pub debug_sessions: Vec<DebugSession>,
-    
+
     /// Files by lock level
     #[serde(default)]
     pub by_lock_level: HashMap<String, Vec<String>>,
@@ -603,11 +609,11 @@ mod tests {
         };
 
         let merged = base.merge(&override_constraints);
-        
+
         // Style should be preserved from base
         assert!(merged.style.is_some());
         assert_eq!(merged.style.unwrap().guide, "google-typescript");
-        
+
         // Mutation should come from override
         assert!(merged.mutation.is_some());
         assert_eq!(merged.mutation.unwrap().level, LockLevel::Restricted);
@@ -616,19 +622,19 @@ mod tests {
     #[test]
     fn test_debug_session() {
         let mut session = DebugSession::new("test-123", "Something is broken");
-        
+
         let attempt1 = session.add_attempt("Maybe it's X", "Changed X");
         session.record_result(attempt1, DebugResult::Failure, Some("Nope, not X".to_string()));
-        
+
         let attempt2 = session.add_attempt("Maybe it's Y", "Changed Y");
         session.record_result(attempt2, DebugResult::Success, Some("Yes, Y was the issue!".to_string()));
-        
+
         // Revert the failed attempt
         session.revert_attempt(attempt1);
-        
+
         assert_eq!(session.get_kept_attempts().len(), 1);
         assert_eq!(session.get_reverted_attempts().len(), 1);
-        
+
         session.resolve("Fixed by changing Y");
         assert_eq!(session.status, DebugStatus::Resolved);
     }

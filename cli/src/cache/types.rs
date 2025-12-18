@@ -1,4 +1,7 @@
-//! Cache data structures matching the JSON schema
+//! @acp:module "Cache Types"
+//! @acp:summary "Data structures matching the .acp.cache.json schema"
+//! @acp:domain cli
+//! @acp:layer model
 //!
 //! These types serialize directly to/from `.acp.cache.json`
 
@@ -12,28 +15,41 @@ use std::path::Path;
 use crate::constraints::ConstraintIndex;
 use crate::error::Result;
 
-/// Complete ACP cache file
+/// @acp:summary "Complete ACP cache file structure"
+/// @acp:lock normal
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cache {
+    /// Schema version
     pub version: String,
+    /// Generation timestamp
     pub generated_at: DateTime<Utc>,
+    /// Project metadata
     pub project: ProjectInfo,
+    /// Aggregate statistics
     pub stats: Stats,
+    /// Files indexed by path (O(1) lookup)
     pub files: HashMap<String, FileEntry>,
+    /// Symbols indexed by name (O(1) lookup)
     pub symbols: HashMap<String, SymbolEntry>,
+    /// Bidirectional call graph
     pub graph: CallGraph,
+    /// Domain groupings
     pub domains: HashMap<String, DomainEntry>,
+    /// Layer groupings
     pub layers: HashMap<String, Vec<String>>,
+    /// Security-sensitive code index
     pub security: SecurityIndex,
+    /// Frequently-called symbols
     pub hotpaths: Vec<HotpathEntry>,
+    /// Stability classifications
     pub stability: StabilityIndex,
-    /// Constraint index for AI guardrails
+    /// AI behavioral constraints
     #[serde(default)]
     pub constraints: ConstraintIndex,
 }
 
 impl Cache {
-    /// Create a new empty cache
+    /// @acp:summary "Create a new empty cache"
     pub fn new(project_name: &str, root: &str) -> Self {
         Self {
             version: crate::VERSION.to_string(),
@@ -56,7 +72,7 @@ impl Cache {
         }
     }
 
-    /// Load cache from JSON file
+    /// @acp:summary "Load cache from JSON file"
     pub fn from_json<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
@@ -64,7 +80,7 @@ impl Cache {
         Ok(cache)
     }
 
-    /// Write cache to JSON file
+    /// @acp:summary "Write cache to JSON file"
     pub fn write_json<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let file = File::create(path)?;
         let writer = BufWriter::new(file);
@@ -72,54 +88,54 @@ impl Cache {
         Ok(())
     }
 
-    /// Get a symbol by name (O(1))
+    /// @acp:summary "Get a symbol by name - O(1) lookup"
     pub fn get_symbol(&self, name: &str) -> Option<&SymbolEntry> {
         self.symbols.get(name)
     }
 
-    /// Get a file by path (O(1))
+    /// @acp:summary "Get a file by path - O(1) lookup"
     pub fn get_file(&self, path: &str) -> Option<&FileEntry> {
         self.files.get(path)
     }
 
-    /// Get callers of a symbol
+    /// @acp:summary "Get callers of a symbol from reverse call graph"
     pub fn get_callers(&self, symbol: &str) -> Option<&Vec<String>> {
         self.graph.reverse.get(symbol)
     }
 
-    /// Get callees of a symbol
+    /// @acp:summary "Get callees of a symbol from forward call graph"
     pub fn get_callees(&self, symbol: &str) -> Option<&Vec<String>> {
         self.graph.forward.get(symbol)
     }
 
-    /// Get files in a domain
+    /// @acp:summary "Get all files in a domain"
     pub fn get_domain_files(&self, domain: &str) -> Option<&Vec<String>> {
         self.domains.get(domain).map(|d| &d.files)
     }
 
-    /// Get files in a layer
+    /// @acp:summary "Get all files in an architectural layer"
     pub fn get_layer_files(&self, layer: &str) -> Option<&Vec<String>> {
         self.layers.get(layer)
     }
 
-    /// Update stats after indexing
+    /// @acp:summary "Recalculate statistics after indexing"
     pub fn update_stats(&mut self) {
         self.stats.files = self.files.len();
         self.stats.symbols = self.symbols.len();
         self.stats.lines = self.files.values().map(|f| f.lines).sum();
-        
+
         let annotated = self.symbols.values()
             .filter(|s| s.summary.is_some())
             .count();
-        
+
         if self.stats.symbols > 0 {
-            self.stats.annotation_coverage = 
+            self.stats.annotation_coverage =
                 (annotated as f64 / self.stats.symbols as f64) * 100.0;
         }
     }
 }
 
-/// Builder for creating cache incrementally
+/// @acp:summary "Builder for incremental cache construction"
 pub struct CacheBuilder {
     cache: Cache,
 }
@@ -145,7 +161,8 @@ impl CacheBuilder {
 
     pub fn add_call_edge(mut self, from: &str, to: Vec<String>) -> Self {
         self.cache.graph.forward.insert(from.to_string(), to.clone());
-        
+
+        // Build reverse graph
         for callee in to {
             self.cache.graph.reverse
                 .entry(callee)
@@ -167,6 +184,7 @@ impl CacheBuilder {
     }
 }
 
+/// @acp:summary "Project metadata"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectInfo {
     pub name: String,
@@ -175,6 +193,7 @@ pub struct ProjectInfo {
     pub description: Option<String>,
 }
 
+/// @acp:summary "Aggregate statistics"
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Stats {
     pub files: usize,
@@ -184,6 +203,7 @@ pub struct Stats {
     pub annotation_coverage: f64,
 }
 
+/// @acp:summary "File entry with metadata and guardrails"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileEntry {
     pub path: String,
@@ -205,11 +225,12 @@ pub struct FileEntry {
     pub keywords: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hash: Option<String>,
-    /// Guardrail annotations for this file
+    /// Guardrail annotations parsed from this file
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub guardrails: Option<crate::guardrails::FileGuardrails>,
+    pub guardrails: Option<crate::constraints::FileGuardrails>,
 }
 
+/// @acp:summary "Symbol entry with metadata"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SymbolEntry {
     pub name: String,
@@ -239,6 +260,7 @@ pub struct SymbolEntry {
     pub complexity: Option<String>,
 }
 
+/// @acp:summary "Symbol type enumeration"
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SymbolType {
@@ -252,6 +274,7 @@ pub enum SymbolType {
     Var,
 }
 
+/// @acp:summary "Stability classification"
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Stability {
@@ -262,16 +285,18 @@ pub enum Stability {
     Volatile,
 }
 
+/// @acp:summary "Bidirectional call graph"
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CallGraph {
-    /// caller -> [callees]
+    /// Forward: caller -> [callees]
     #[serde(default)]
     pub forward: HashMap<String, Vec<String>>,
-    /// callee -> [callers]
+    /// Reverse: callee -> [callers]
     #[serde(default)]
     pub reverse: HashMap<String, Vec<String>>,
 }
 
+/// @acp:summary "Domain grouping"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomainEntry {
     pub name: String,
@@ -284,6 +309,7 @@ pub struct DomainEntry {
     pub symbol_count: usize,
 }
 
+/// @acp:summary "Security-sensitive code index"
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SecurityIndex {
     #[serde(default)]
@@ -302,6 +328,7 @@ pub struct SecurityIndex {
     pub compliance: HashMap<String, Vec<String>>,
 }
 
+/// @acp:summary "Hotpath entry for frequently-called code"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HotpathEntry {
     pub symbol: String,
@@ -314,6 +341,7 @@ pub struct HotpathEntry {
     pub callers: usize,
 }
 
+/// @acp:summary "Stability index groupings"
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct StabilityIndex {
     #[serde(default)]
@@ -355,7 +383,7 @@ mod tests {
 
         let json = serde_json::to_string_pretty(&cache).unwrap();
         let parsed: Cache = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(parsed.project.name, "test");
         assert!(parsed.symbols.contains_key("test_fn"));
     }

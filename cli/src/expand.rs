@@ -1,34 +1,11 @@
-//! Output expansion module
+//! @acp:module "Expansion Presets"
+//! @acp:summary "Re-exports expansion types and presets from vars module"
+//! @acp:domain cli
+//! @acp:layer utility
 //!
-//! Expands AI output with variable references for human reading.
+//! This module provides convenient re-exports for variable expansion functionality.
 
 pub use crate::vars::{
-    VarExpander,
-    VarResolver,
-    ExpansionMode,
-    ExpansionResult,
-    InheritanceChain,
+    ExpansionMode, ExpansionResult, InheritanceChain,
+    VarExpander, VarResolver, presets,
 };
-
-/// Preset expansion configurations
-pub mod presets {
-    use super::ExpansionMode;
-
-    /// For AI-to-AI communication
-    pub const AI_TO_AI: ExpansionMode = ExpansionMode::None;
-
-    /// Quick human reading
-    pub const QUICK: ExpansionMode = ExpansionMode::Inline;
-
-    /// Detailed human reading (default)
-    pub const DETAILED: ExpansionMode = ExpansionMode::Annotated;
-
-    /// Documentation generation
-    pub const DOCUMENTATION: ExpansionMode = ExpansionMode::Block;
-
-    /// Interactive web UI
-    pub const INTERACTIVE: ExpansionMode = ExpansionMode::Interactive;
-
-    /// Most compact human-readable
-    pub const SUMMARY: ExpansionMode = ExpansionMode::Summary;
-}

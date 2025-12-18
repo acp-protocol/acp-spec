@@ -1,0 +1,235 @@
+name: 🐛 Bug Report
+description: Report a bug in the ACP specification, CLI, schemas, or tooling
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the sections below to help us understand and resolve the issue.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of ACP is affected?
+      options:
+        - Specification (ACP-1.0.md)
+        - CLI (acp command)
+        - MCP Server (acp-mcp-server)
+        - JSON Schemas
+        - Documentation
+        - VS Code Extension
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: spec-chapter
+    attributes:
+      label: Specification Chapter
+      description: If this relates to the specification, which chapter?
+      options:
+        - N/A - Not specification related
+        - "01 - Introduction"
+        - "02 - Terminology"
+        - "03 - Cache Format"
+        - "04 - Config Format"
+        - "05 - Annotations"
+        - "06 - Constraints"
+        - "07 - Variables"
+        - "08 - Inheritance & Cascade"
+        - "09 - Discovery"
+        - "10 - Querying"
+        - "11 - Versioning"
+        - "12 - Debug Sessions"
+        - "Appendix A - Annotation Reference"
+        - "Appendix B - JSON Schema Reference"
+        - "Appendix C - Language Support"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: file-format
+    attributes:
+      label: File Format
+      description: If this relates to a file format, which one?
+      options:
+        - N/A - Not file format related
+        - ".acp.cache.json (Cache)"
+        - ".acp.config.json (Config)"
+        - ".acp.vars.json (Variables)"
+        - ".acp.dir.json (Directory Config)"
+        - "JSON Schema files"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - "Critical - Blocks usage entirely"
+        - "High - Major feature broken"
+        - "Medium - Feature impaired but workaround exists"
+        - "Low - Minor inconvenience"
+        - "Trivial - Cosmetic or typo"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: ACP Version
+      description: Which version of ACP are you using?
+      placeholder: "e.g., 1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: tool-version
+    attributes:
+      label: Tool Version
+      description: If using CLI/MCP Server, which version?
+      placeholder: "e.g., acp-cli 0.1.0"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: language
+    attributes:
+      label: Programming Language
+      description: If language-specific, which language?
+      options:
+        - N/A - Not language specific
+        - TypeScript
+        - JavaScript
+        - Python
+        - Rust
+        - Go
+        - Java
+        - C#
+        - C/C++
+        - Ruby
+        - PHP
+        - Swift
+        - Kotlin
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug
+      placeholder: Describe what went wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe what you expected...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Create a file with...
+        2. Run command...
+        3. Observe error...
+      value: |
+        1. 
+        2. 
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: code-sample
+    attributes:
+      label: Code Sample
+      description: If applicable, provide a minimal code sample that demonstrates the issue
+      render: typescript
+      placeholder: |
+        /**
+         * @acp:lock frozen
+         */
+        function example() {}
+    validations:
+      required: false
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error Output
+      description: If applicable, paste any error messages or logs
+      render: shell
+      placeholder: |
+        $ acp index
+        Error: ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Please provide relevant environment details
+      placeholder: |
+        - OS: macOS 14.0 / Ubuntu 22.04 / Windows 11
+        - Node.js: 20.x (if applicable)
+        - Rust: 1.75 (if applicable)
+        - Shell: bash / zsh / PowerShell
+    validations:
+      required: false
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: Have you found a workaround? If so, please share it.
+      placeholder: Describe any workaround you've found...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or files about the bug
+      placeholder: Any additional information...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to ensure this bug hasn't been reported
+          required: true
+        - label: I have provided all requested information
+          required: true
+        - label: I am using a supported version of ACP
+          required: false

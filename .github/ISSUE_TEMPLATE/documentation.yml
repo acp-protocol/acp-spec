@@ -1,0 +1,187 @@
+name: 📚 Documentation Improvement
+description: Suggest improvements to ACP documentation
+title: "[Docs]: "
+labels: ["documentation", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us improve the ACP documentation! Whether it's a typo, unclear explanation, missing example, or a whole new guide, we appreciate your feedback.
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation change is this?
+      options:
+        - "Fix - Typo, grammar, or factual error"
+        - "Clarify - Unclear or confusing explanation"
+        - "Add Example - Missing or additional example needed"
+        - "Add Section - Missing content"
+        - "Restructure - Organization improvement"
+        - "New Guide - Tutorial or how-to"
+        - "API Reference - CLI/MCP documentation"
+        - "Translation - Non-English documentation"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: doc-location
+    attributes:
+      label: Document Location
+      description: Which document(s) need improvement?
+      multiple: true
+      options:
+        - "README.md"
+        - "Specification - ACP-1.0.md"
+        - "01 - Introduction"
+        - "02 - Terminology"
+        - "03 - Cache Format"
+        - "04 - Config Format"
+        - "05 - Annotations"
+        - "06 - Constraints"
+        - "07 - Variables"
+        - "08 - Inheritance & Cascade"
+        - "09 - Discovery"
+        - "10 - Querying"
+        - "11 - Versioning"
+        - "12 - Debug Sessions"
+        - "Examples - minimal.md"
+        - "Examples - complete.md"
+        - "Examples - edge-cases.md"
+        - "Grammar - annotations.ebnf"
+        - "CLI README"
+        - "MCP Server README"
+        - "Integration guides"
+        - "Getting Started guide"
+        - "CONTRIBUTING.md"
+        - "New document needed"
+        - "Other (please specify)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Target Audience
+      description: Who is the primary audience for this documentation?
+      options:
+        - "Beginners - New to ACP"
+        - "Users - Using ACP in projects"
+        - "Implementers - Building ACP tools"
+        - "Contributors - Contributing to ACP"
+        - "All audiences"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this documentation change?
+      options:
+        - "Low - Nice to have"
+        - "Medium - Would help understanding"
+        - "High - Currently causing confusion"
+        - "Critical - Incorrect information"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-state
+    attributes:
+      label: Current State
+      description: Describe the current documentation (or lack thereof)
+      placeholder: |
+        The current documentation says...
+        OR
+        There is no documentation for...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What's wrong or missing? Why is this a problem?
+      placeholder: |
+        This is problematic because...
+        Users might misunderstand...
+        I was confused when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How should the documentation be improved?
+      placeholder: |
+        I suggest...
+        The documentation should explain...
+        An example showing X would help...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-text
+    attributes:
+      label: Proposed Text
+      description: If you have specific text in mind, provide it here
+      render: markdown
+      placeholder: |
+        ## Proposed Section
+        
+        Here's how to use feature X:
+        
+        ```typescript
+        // Example code
+        ```
+    validations:
+      required: false
+
+  - type: input
+    id: line-reference
+    attributes:
+      label: Line Reference
+      description: If fixing existing content, provide file and line numbers
+      placeholder: "e.g., spec/ACP-1.0.md:245-250"
+    validations:
+      required: false
+
+  - type: textarea
+    id: related-docs
+    attributes:
+      label: Related Documentation
+      description: Are there related docs that should be updated together?
+      placeholder: |
+        - Also update X.md to maintain consistency
+        - Cross-reference with Y.md
+    validations:
+      required: false
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Are you willing to contribute this documentation change?
+      options:
+        - "Yes - I will submit a PR"
+        - "Maybe - I could help with review"
+        - "No - Just reporting"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues for similar documentation requests
+          required: true
+        - label: I have checked the latest version of the documentation
+          required: true

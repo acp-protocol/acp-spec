@@ -1,15 +1,18 @@
-//! Attempt tracking and rollback system
+//! @acp:module "Attempt Tracking"
+//! @acp:summary "Attempt tracking and rollback system for AI troubleshooting"
+//! @acp:domain cli
+//! @acp:layer service
 //!
 //! Manages troubleshooting attempts, checkpoints, and rollbacks.
 
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
-use crate::guardrails::{Attempt, AttemptStatus, Checkpoint};
+use crate::constraints::AttemptStatus;
 
 /// Tracks all attempts across the project
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

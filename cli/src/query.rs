@@ -1,4 +1,7 @@
-//! Query module for programmatic cache access
+//! @acp:module "Query"
+//! @acp:summary "Programmatic cache access and querying"
+//! @acp:domain cli
+//! @acp:layer service
 //!
 //! Provides type-safe queries similar to jq but in Rust.
 

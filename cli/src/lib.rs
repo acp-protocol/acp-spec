@@ -1,3 +1,9 @@
+//! @acp:module "ACP Library"
+//! @acp:summary "Token-efficient code documentation and indexing for AI systems"
+//! @acp:domain cli
+//! @acp:layer api
+//! @acp:stability stable
+//!
 //! # ACP - AI Context Protocol
 //!
 //! Token-efficient code documentation and indexing for AI systems.
@@ -18,13 +24,13 @@
 //! async fn main() -> anyhow::Result<()> {
 //!     let config = Config::default();
 //!     let indexer = Indexer::new(config)?;
-//!     
+//!
 //!     // Index codebase
 //!     let cache = indexer.index(".").await?;
-//!     
+//!
 //!     // Write JSON output
 //!     cache.write_json(".acp.cache.json")?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -40,21 +46,24 @@ pub mod query;
 pub mod schema;
 pub mod vars;
 pub mod watch;
+pub mod attempts;
 
 // Re-exports
 pub use cache::{Cache, CacheBuilder};
 pub use config::Config;
 pub use constraints::{
-    Constraints, ConstraintIndex, 
+    Constraints, ConstraintIndex,
     StyleConstraint, MutationConstraint, BehaviorModifier, QualityGate,
     HackMarker, DebugSession, DebugAttempt,
     LockLevel, DebugStatus, DebugResult,
+    GuardrailEnforcer, FileGuardrails, GuardrailParser,
 };
 pub use error::{AcpError, Result};
 pub use index::Indexer;
 pub use parse::{Parser, Language};
 pub use query::Query;
 pub use vars::{VarResolver, VarExpander};
+pub use attempts::AttemptTracker;
 
 /// Library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

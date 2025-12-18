@@ -1,0 +1,65 @@
+/* ACP Annotation Grammar - W3C EBNF Style */
+/* For use with https://www.bottlecaps.de/rr/ui */
+
+annotation      ::= prefix namespace sub_namespace? ( whitespace value )?
+
+prefix          ::= '@acp:'
+
+namespace       ::= identifier
+
+sub_namespace   ::= ':' identifier
+
+identifier      ::= letter ( letter | digit | '-' )*
+
+value           ::= quoted_string | unquoted_value
+
+quoted_string   ::= '"' ( string_char | escape_seq )* '"'
+
+string_char     ::= [^"\\\n\r]
+
+escape_seq      ::= '\' ( '"' | '\' | 'n' | 'r' | 't' )
+
+unquoted_value  ::= [^\n\r]+
+
+variable_ref    ::= '$' variable_name modifier?
+
+variable_name   ::= variable_prefix '_' upper_ident
+
+variable_prefix ::= 'SYM' | 'FILE' | 'DOM'
+
+upper_ident     ::= [A-Z] [A-Z0-9_]*
+
+modifier        ::= '.' modifier_name
+
+modifier_name   ::= 'full' | 'ref' | 'signature'
+
+lock_level      ::= 'frozen' | 'restricted' | 'approval-required' 
+                  | 'tests-required' | 'docs-required' | 'review-required'
+                  | 'normal' | 'experimental'
+
+stability       ::= 'stable' | 'experimental' | 'deprecated'
+
+behavior        ::= 'conservative' | 'balanced' | 'aggressive'
+
+layer           ::= 'handler' | 'controller' | 'service' 
+                  | 'repository' | 'model' | 'utility' | 'config'
+
+extension_ns    ::= 'x-' vendor_id ( ( '-' | ':' ) feature_id )?
+
+vendor_id       ::= letter ( letter | digit | '-' )*
+
+feature_id      ::= letter ( letter | digit | '-' )*
+
+qualified_name  ::= file_path ':' symbol_path
+
+file_path       ::= path_segment ( '/' path_segment )*
+
+path_segment    ::= [a-zA-Z0-9_-] [a-zA-Z0-9_.-]*
+
+symbol_path     ::= identifier ( '.' identifier )*
+
+letter          ::= [a-zA-Z]
+
+digit           ::= [0-9]
+
+whitespace      ::= [ \t]+

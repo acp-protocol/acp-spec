@@ -1,0 +1,159 @@
+name: ❓ Question / Discussion
+description: Ask a question or start a discussion about ACP
+title: "[Question]: "
+labels: ["question", "discussion"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about ACP? Want to discuss an idea before creating a feature request? This is the place!
+        
+        **Note:** For bugs, please use the [Bug Report](./bug_report.yml) template. For feature proposals, use [Feature Request](./feature_request.yml).
+
+  - type: dropdown
+    id: question-type
+    attributes:
+      label: Question Type
+      description: What kind of question is this?
+      options:
+        - "How do I...? - Usage question"
+        - "Why does...? - Design rationale"
+        - "What is...? - Clarification"
+        - "Should I...? - Best practices"
+        - "Can ACP...? - Capability question"
+        - "Discussion - Open-ended topic"
+        - "Feedback - General feedback"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Topic Area
+      description: What area does this question relate to?
+      options:
+        - "General - ACP overview"
+        - "Annotations - Syntax and usage"
+        - "Constraints - Lock levels, style, behavior"
+        - "Variables - Variable system"
+        - "Cache - Cache format and generation"
+        - "Configuration - Config file options"
+        - "Queries - jq, CLI, MCP queries"
+        - "Inheritance - Constraint cascading"
+        - "CLI - Command line tool"
+        - "MCP Server - AI assistant integration"
+        - "Integration - Third-party tools"
+        - "Best Practices - Patterns and recommendations"
+        - "Migration - Upgrading or adopting ACP"
+        - "Performance - Optimization"
+        - "Ecosystem - Tooling and extensions"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component is this about?
+      options:
+        - "General / Multiple"
+        - "Specification"
+        - "CLI"
+        - "MCP Server"
+        - "JSON Schemas"
+        - "Documentation"
+        - "VS Code Extension"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What's your question?
+      placeholder: |
+        I'm trying to understand...
+        How should I approach...
+        What's the recommended way to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide context to help us understand your question better
+      placeholder: |
+        I'm working on...
+        My use case is...
+        I've read the docs on X but I'm still unclear about...
+    validations:
+      required: false
+
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What I've Tried
+      description: What have you already tried or researched?
+      placeholder: |
+        I've looked at...
+        I tried...
+        The documentation says X, but...
+    validations:
+      required: false
+
+  - type: textarea
+    id: code-example
+    attributes:
+      label: Code Example
+      description: If relevant, provide a code example
+      render: typescript
+      placeholder: |
+        /**
+         * @acp:lock restricted
+         */
+        function example() {
+          // What I'm trying to do...
+        }
+    validations:
+      required: false
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Urgency
+      description: How urgent is this question?
+      options:
+        - "Not urgent - Just curious"
+        - "Planning - Evaluating ACP"
+        - "Active development - Working on something"
+        - "Blocking - Need answer to proceed"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Prior Research
+      description: Please confirm you've done some research first
+      options:
+        - label: I have searched existing issues and discussions
+          required: true
+        - label: I have checked the documentation
+          required: true
+        - label: I have looked at the examples
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: Anything else you'd like to add?
+      placeholder: Any additional context, links, or references...
+    validations:
+      required: false

@@ -1,32 +1,36 @@
-//! Configuration for ACP
+//! @acp:module "Configuration"
+//! @acp:summary "Project configuration loading and defaults"
+//! @acp:domain cli
+//! @acp:layer config
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// ACP configuration
+/// @acp:summary "Main ACP configuration structure"
+/// @acp:lock normal
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// Project root directory
     #[serde(default = "default_root")]
     pub root: PathBuf,
 
-    /// File patterns to include
+    /// File patterns to include (glob syntax)
     #[serde(default = "default_include")]
     pub include: Vec<String>,
 
-    /// File patterns to exclude
+    /// File patterns to exclude (glob syntax)
     #[serde(default = "default_exclude")]
     pub exclude: Vec<String>,
 
-    /// Output paths
+    /// Output paths configuration
     #[serde(default)]
     pub output: OutputConfig,
 
-    /// Parser settings
+    /// Parser behavior settings
     #[serde(default)]
     pub parser: ParserConfig,
 
-    /// Indexer settings
+    /// Indexer behavior settings
     #[serde(default)]
     pub indexer: IndexerConfig,
 }
@@ -45,13 +49,13 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Load config from .acp.config.json
+    /// @acp:summary "Load config from .acp.config.json file"
     pub fn load<P: AsRef<std::path::Path>>(path: P) -> crate::Result<Self> {
         let content = std::fs::read_to_string(path)?;
         Ok(serde_json::from_str(&content)?)
     }
 
-    /// Load from default location or create default
+    /// @acp:summary "Load from default location or create default config"
     pub fn load_or_default() -> Self {
         Self::load(".acp.config.json").unwrap_or_default()
     }
@@ -86,17 +90,18 @@ fn default_exclude() -> Vec<String> {
     ]
 }
 
+/// @acp:summary "Output file path configuration"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputConfig {
-    /// Cache file path
+    /// Cache file output path
     #[serde(default = "default_cache_path")]
     pub cache: PathBuf,
 
-    /// Vars file path
+    /// Vars file output path
     #[serde(default = "default_vars_path")]
     pub vars: PathBuf,
 
-    /// Whether to also output SQLite
+    /// Whether to also output SQLite database
     #[serde(default)]
     pub sqlite: bool,
 }
@@ -119,17 +124,18 @@ fn default_vars_path() -> PathBuf {
     PathBuf::from(".acp.vars.json")
 }
 
+/// @acp:summary "Parser behavior configuration"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParserConfig {
-    /// Extract doc comments
+    /// Extract documentation comments
     #[serde(default = "default_true")]
     pub extract_docs: bool,
 
-    /// Parse function signatures
+    /// Parse and extract function signatures
     #[serde(default = "default_true")]
     pub extract_signatures: bool,
 
-    /// Track call graph
+    /// Track call graph relationships
     #[serde(default = "default_true")]
     pub track_calls: bool,
 }
@@ -144,21 +150,22 @@ impl Default for ParserConfig {
     }
 }
 
+/// @acp:summary "Indexer behavior configuration"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexerConfig {
-    /// Number of parallel workers
+    /// Number of parallel workers for file processing
     #[serde(default = "default_workers")]
     pub workers: usize,
 
-    /// Generate vars automatically
+    /// Automatically generate vars file after indexing
     #[serde(default = "default_true")]
     pub auto_vars: bool,
 
-    /// Infer domains from paths
+    /// Infer domains from file paths
     #[serde(default = "default_true")]
     pub infer_domains: bool,
 
-    /// Infer layers from paths
+    /// Infer architectural layers from file paths
     #[serde(default = "default_true")]
     pub infer_layers: bool,
 }
@@ -182,7 +189,7 @@ fn default_workers() -> usize {
     num_cpus::get().max(1)
 }
 
-// Add num_cpus to Cargo.toml if not using default
+// Fallback if num_cpus not available
 #[cfg(not(feature = "num_cpus"))]
 mod num_cpus {
     pub fn get() -> usize {

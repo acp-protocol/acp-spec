@@ -463,9 +463,9 @@ async fn main() -> anyhow::Result<()> {
                         println!("{}", style("Attempt History:").bold());
                         for entry in &tracker.history {
                             let status_color = match entry.status {
-                                acp::guardrails::AttemptStatus::Verified => style("✓").green(),
-                                acp::guardrails::AttemptStatus::Failed => style("✗").red(),
-                                acp::guardrails::AttemptStatus::Reverted => style("↩").yellow(),
+                                acp::constraints::AttemptStatus::Verified => style("✓").green(),
+                                acp::constraints::AttemptStatus::Failed => style("✗").red(),
+                                acp::constraints::AttemptStatus::Reverted => style("↩").yellow(),
                                 _ => style("?").dim(),
                             };
                             println!("  {} {} - {:?} ({} files)",
@@ -478,17 +478,17 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         println!("{}", style("Active Attempts:").bold());
                         for attempt in tracker.attempts.values() {
-                            if active && attempt.status != acp::guardrails::AttemptStatus::Active {
+                            if active && attempt.status != acp::constraints::AttemptStatus::Active {
                                 continue;
                             }
-                            if failed && attempt.status != acp::guardrails::AttemptStatus::Failed {
+                            if failed && attempt.status != acp::constraints::AttemptStatus::Failed {
                                 continue;
                             }
                             
                             let status_color = match attempt.status {
-                                acp::guardrails::AttemptStatus::Active => style("●").cyan(),
-                                acp::guardrails::AttemptStatus::Testing => style("◐").yellow(),
-                                acp::guardrails::AttemptStatus::Failed => style("✗").red(),
+                                acp::constraints::AttemptStatus::Active => style("●").cyan(),
+                                acp::constraints::AttemptStatus::Testing => style("◐").yellow(),
+                                acp::constraints::AttemptStatus::Failed => style("✗").red(),
                                 _ => style("?").dim(),
                             };
                             

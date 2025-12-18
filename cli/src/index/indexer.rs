@@ -1,4 +1,7 @@
-//! Indexer module
+//! @acp:module "Indexer"
+//! @acp:summary "Codebase indexing and cache generation"
+//! @acp:domain cli
+//! @acp:layer service
 //!
 //! Walks the codebase and builds the cache/vars files.
 
@@ -15,7 +18,7 @@ use crate::error::Result;
 use crate::parse::Parser;
 use crate::vars::VarsFile;
 
-/// Codebase indexer
+/// @acp:summary "Codebase indexer with parallel file processing"
 pub struct Indexer {
     config: Config,
     parser: Arc<Parser>,
@@ -29,7 +32,8 @@ impl Indexer {
         })
     }
 
-    /// Index the codebase and generate cache
+    /// @acp:summary "Index the codebase and generate cache"
+    /// @acp:ai-careful "This processes many files in parallel"
     pub async fn index<P: AsRef<Path>>(&self, root: P) -> Result<Cache> {
         let root = root.as_ref();
         let project_name = root
@@ -42,7 +46,7 @@ impl Indexer {
         // Find all matching files
         let files = self.find_files(root)?;
 
-        // Parse files in parallel
+        // Parse files in parallel using rayon
         let results: Vec<_> = files
             .par_iter()
             .filter_map(|path| {
@@ -51,7 +55,8 @@ impl Indexer {
             .collect();
 
         // Build cache from results
-        let mut domains: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        let mut domains: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
 
         for result in results {
             // Add file
@@ -76,7 +81,7 @@ impl Indexer {
             }
         }
 
-        // Add domains
+        // Add domains to cache
         for (name, files) in domains {
             builder = builder.add_domain(DomainEntry {
                 name: name.clone(),
@@ -90,14 +95,14 @@ impl Indexer {
         Ok(builder.build())
     }
 
-    /// Find all files matching include/exclude patterns
+    /// @acp:summary "Find all files matching include/exclude patterns"
     fn find_files<P: AsRef<Path>>(&self, root: P) -> Result<Vec<String>> {
         let root = root.as_ref();
         let include_patterns: Vec<_> = self.config.include
             .iter()
             .filter_map(|p| Pattern::new(p).ok())
             .collect();
-        
+
         let exclude_patterns: Vec<_> = self.config.exclude
             .iter()
             .filter_map(|p| Pattern::new(p).ok())
@@ -120,7 +125,7 @@ impl Indexer {
         Ok(files)
     }
 
-    /// Generate vars file from cache
+    /// @acp:summary "Generate vars file from cache"
     pub fn generate_vars(&self, cache: &Cache) -> VarsFile {
         use crate::vars::{VarEntry, VarCategory, VarsFile};
         use chrono::Utc;

@@ -1,22 +1,25 @@
-//! File watching module
+//! @acp:module "File Watcher"
+//! @acp:summary "Watches for file changes and triggers incremental updates"
+//! @acp:domain cli
+//! @acp:layer service
 //!
 //! Watches for file changes and updates cache/vars incrementally.
 
 use std::path::Path;
 use std::sync::mpsc;
 
-use notify::{Watcher, RecursiveMode, watcher};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config};
 
-use crate::config::Config;
+use crate::config::Config as AcpConfig;
 use crate::error::Result;
 
 /// File watcher for incremental updates
 pub struct FileWatcher {
-    config: Config,
+    config: AcpConfig,
 }
 
 impl FileWatcher {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: AcpConfig) -> Self {
         Self { config }
     }
 
@@ -24,7 +27,7 @@ impl FileWatcher {
     pub fn watch<P: AsRef<Path>>(&self, root: P) -> Result<()> {
         let (tx, rx) = mpsc::channel();
 
-        let mut watcher = watcher(tx, std::time::Duration::from_secs(2))
+        let mut watcher = RecommendedWatcher::new(tx, Config::default())
             .map_err(|e| crate::error::AcpError::Other(e.to_string()))?;
 
         watcher.watch(root.as_ref(), RecursiveMode::Recursive)
@@ -35,13 +38,23 @@ impl FileWatcher {
         loop {
             match rx.recv() {
                 Ok(event) => {
-                    println!("Change detected: {:?}", event);
-                    // TODO: Incremental update
+                    match event {
+                        Ok(event) => {
+                            println!("Change detected: {:?}", event);
+                            // TODO: Incremental update based on event.kind
+                        }
+                        Err(e) => {
+                            eprintln!("Watch error: {}", e);
+                        }
+                    }
                 }
                 Err(e) => {
-                    eprintln!("Watch error: {}", e);
+                    eprintln!("Channel error: {}", e);
+                    break;
                 }
             }
         }
+
+        Ok(())
     }
 }

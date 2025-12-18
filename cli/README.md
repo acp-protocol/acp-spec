@@ -1,133 +1,426 @@
-# ACP (AI Context Protocol) - Complete System
+# ACP CLI
 
-A protocol for AI-friendly code documentation, context management, and behavioral guardrails.
+Command-line interface for the [AI Context Protocol](../README.md) — index your codebase, generate variables, and manage AI behavioral constraints.
+
+[![Crate](https://img.shields.io/crates/v/acp.svg)](https://crates.io/crates/acp)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](../LICENSE)
+
+---
+
+## Installation
+
+### Building from Source (Current)
+
+```bash
+# Clone the repository
+git clone https://github.com/acp-protocol/acp-spec.git
+cd acp-spec/cli
+
+# Build release binary
+cargo build --release
+
+# Install to PATH
+cargo install --path .
+```
+
+### Homebrew (Coming Soon)
+
+```bash
+brew tap acp-protocol/tap
+brew install acp-cli
+```
+
+### npm (Coming Soon)
+
+```bash
+npm install -g @acp-protocol/cli
+```
+
+### Pre-built Binaries (Coming Soon)
+
+Pre-built binaries for macOS, Linux, and Windows will be available on the [Releases](https://github.com/acp-protocol/acp-spec/releases) page.
+
+---
 
 ## Quick Start
 
 ### 1. Index Your Codebase
 
 ```bash
-# Using the Rust CLI
-acp index . --vars
-
-# This creates:
-# .acp.cache.json - Codebase index
-# .acp.vars.json  - Variable definitions
+cd your-project
+acp index
 ```
 
-### 2. Add the Primer to Your AI
+This generates `.acp.cache.json` with your codebase structure, symbols, and constraints.
 
-Choose one (see `docs/primers.md` for full options):
+### 2. Generate Variables
 
-**Minimal (~150 tokens):**
-```
-This codebase uses ACP. Before modifying files:
-1. Check `.acp.cache.json` for constraints
-2. Respect @acp:lock levels: frozen=don't touch, restricted=ask first
-3. Use @acp:hack markers for temporary fixes
-Query: jq '.constraints.by_file["<path>"]' .acp.cache.json
+```bash
+acp index --vars
+# Or separately:
+acp vars
 ```
 
-**With MCP Tools (~200 tokens):**
-```
-This codebase uses ACP. You have tools:
-- acp_constraints - Check before modifying any file
-- acp_query - Query symbols, files, domains
-- acp_debug - Track debugging attempts
-- acp_hack - Mark temporary code
+This creates `.acp.vars.json` with token-efficient variable definitions.
+
+### 3. Query the Cache
+
+```bash
+# Show stats
+acp query stats
+
+# Look up a symbol
+acp query symbol validateSession
+
+# List domains
+acp query domains
 ```
 
-### 3. Add Constraints to Your Code
+---
 
-```typescript
-/**
- * @acp:lock restricted
- * @acp:style google-typescript
- * @acp:behavior conservative
- * @acp:ref https://docs.example.com
- */
-export function sensitiveFunction() {
-  // AI will ask permission and explain changes
+## Commands
+
+### Global Options
+
+```
+-c, --config <path>    Config file path [default: .acp.config.json]
+-v, --verbose          Enable verbose output
+-h, --help             Print help
+-V, --version          Print version
+```
+
+---
+
+### `acp index`
+
+Index the codebase and generate `.acp.cache.json`.
+
+```bash
+acp index [ROOT] [OPTIONS]
+
+Arguments:
+  ROOT    Root directory to index [default: .]
+
+Options:
+  -o, --output <path>    Output cache file [default: .acp.cache.json]
+      --vars             Also generate vars file
+```
+
+**Examples:**
+
+```bash
+# Index current directory
+acp index
+
+# Index specific directory with vars
+acp index ./src --vars
+
+# Custom output path
+acp index -o build/cache.json
+```
+
+---
+
+### `acp vars`
+
+Generate `.acp.vars.json` from an existing cache.
+
+```bash
+acp vars [OPTIONS]
+
+Options:
+  -c, --cache <path>     Cache file to read [default: .acp.cache.json]
+  -o, --output <path>    Output vars file [default: .acp.vars.json]
+```
+
+**Example:**
+
+```bash
+acp vars -c build/cache.json -o build/vars.json
+```
+
+---
+
+### `acp query`
+
+Query the cache for symbols, files, and metadata.
+
+```bash
+acp query <SUBCOMMAND> [OPTIONS]
+
+Options:
+  -c, --cache <path>    Cache file [default: .acp.cache.json]
+
+Subcommands:
+  symbol <name>     Query a symbol by name
+  file <path>       Query a file by path
+  callers <symbol>  Get callers of a symbol
+  callees <symbol>  Get callees of a symbol
+  domains           List all domains
+  domain <name>     Query a specific domain
+  hotpaths          List frequently-called symbols
+  stats             Show aggregate statistics
+```
+
+**Examples:**
+
+```bash
+# Get symbol info as JSON
+acp query symbol validateSession
+
+# See what calls a function
+acp query callers handleRequest
+
+# List all domains
+acp query domains
+
+# Show codebase statistics
+acp query stats
+```
+
+---
+
+### `acp expand`
+
+Expand variable references in text.
+
+```bash
+acp expand [TEXT] [OPTIONS]
+
+Arguments:
+  TEXT    Text to expand (reads from stdin if omitted)
+
+Options:
+  -m, --mode <mode>     Expansion mode [default: annotated]
+                        Values: none, summary, inline, annotated, block, interactive
+      --vars <path>     Vars file [default: .acp.vars.json]
+      --chains          Show inheritance chains
+```
+
+**Examples:**
+
+```bash
+# Expand inline
+acp expand "Check \$SYM_VALIDATE_SESSION"
+
+# Pipe from stdin
+echo "See \$ARCH_AUTH_FLOW" | acp expand --mode block
+
+# Show variable inheritance
+acp expand "\$SYM_HANDLER" --chains
+```
+
+**Expansion Modes:**
+
+| Mode | Description |
+|------|-------------|
+| `none` | Keep `$VAR` references as-is |
+| `summary` | Replace with summary only |
+| `inline` | Replace with full value |
+| `annotated` | Show `**$VAR** → value` |
+| `block` | Full formatted block |
+| `interactive` | HTML-like markers for UI |
+
+---
+
+### `acp chain`
+
+Show variable inheritance chain.
+
+```bash
+acp chain <NAME> [OPTIONS]
+
+Arguments:
+  NAME    Variable name (with or without $)
+
+Options:
+      --vars <path>    Vars file [default: .acp.vars.json]
+      --tree           Display as tree
+```
+
+**Examples:**
+
+```bash
+# Show chain
+acp chain SYM_AUTH_HANDLER
+
+# Show as tree
+acp chain $ARCH_PAYMENT --tree
+```
+
+---
+
+### `acp attempt`
+
+Manage troubleshooting attempts for debugging sessions.
+
+```bash
+acp attempt <SUBCOMMAND>
+
+Subcommands:
+  start <id>          Start a new attempt
+  list                List attempts
+  fail <id>           Mark attempt as failed
+  verify <id>         Mark attempt as verified (success)
+  revert <id>         Revert an attempt's changes
+  cleanup             Clean up all failed attempts
+  checkpoint <name>   Create a checkpoint
+  checkpoints         List all checkpoints
+  restore <name>      Restore to a checkpoint
+```
+
+**Attempt workflow:**
+
+```bash
+# Start debugging
+acp attempt start auth-fix-001 -f "BUG-123" -d "Fixing 401 errors"
+
+# If it fails
+acp attempt fail auth-fix-001 --reason "Broke login flow"
+acp attempt revert auth-fix-001
+
+# If it works
+acp attempt verify auth-fix-001
+
+# Clean up all failed attempts
+acp attempt cleanup
+```
+
+**Checkpoint workflow:**
+
+```bash
+# Create checkpoint before risky changes
+acp attempt checkpoint before-refactor -f src/auth.ts -f src/session.ts
+
+# List checkpoints
+acp attempt checkpoints
+
+# Restore if needed
+acp attempt restore before-refactor
+```
+
+---
+
+### `acp check`
+
+Check guardrails for a file.
+
+```bash
+acp check <FILE> [OPTIONS]
+
+Arguments:
+  FILE    File to check
+
+Options:
+  -c, --cache <path>    Cache file [default: .acp.cache.json]
+```
+
+**Example:**
+
+```bash
+acp check src/auth/session.ts
+```
+
+**Output:**
+
+```
+✓ Guardrails check passed
+
+Warnings:
+  ⚠ [ai-careful] Extra caution required: security-critical code
+
+Required Actions:
+  → flag-for-review - Requires security review
+```
+
+---
+
+### `acp revert`
+
+Revert changes from an attempt or restore a checkpoint.
+
+```bash
+acp revert [OPTIONS]
+
+Options:
+      --attempt <id>        Attempt ID to revert
+      --checkpoint <name>   Checkpoint name to restore
+```
+
+**Examples:**
+
+```bash
+# Revert a failed attempt
+acp revert --attempt auth-fix-001
+
+# Restore to checkpoint
+acp revert --checkpoint before-refactor
+```
+
+---
+
+### `acp watch`
+
+Watch for file changes and update cache in real-time.
+
+```bash
+acp watch [ROOT]
+
+Arguments:
+  ROOT    Directory to watch [default: .]
+```
+
+**Example:**
+
+```bash
+acp watch ./src
+```
+
+---
+
+### `acp validate`
+
+Validate cache or vars files against the schema.
+
+```bash
+acp validate <FILE>
+
+Arguments:
+  FILE    File to validate (.acp.cache.json or .acp.vars.json)
+```
+
+**Examples:**
+
+```bash
+acp validate .acp.cache.json
+acp validate .acp.vars.json
+```
+
+---
+
+## Configuration
+
+Create `.acp.config.json` in your project root:
+
+```json
+{
+  "include": ["src/**/*", "lib/**/*"],
+  "exclude": ["**/node_modules/**", "**/dist/**", "**/*.test.*"],
+  "languages": ["typescript", "javascript", "rust", "python"],
+  "output": {
+    "cache": ".acp.cache.json",
+    "vars": ".acp.vars.json"
+  }
 }
 ```
 
-### 4. (Optional) Run the MCP Server
+See the [config schema](../schemas/v1/config.schema.json) for all options.
 
-```bash
-cd acp-mcp-server
-npm install && npm run build
-
-# Add to Claude Desktop config
-```
-
-## The Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        USER REQUEST                              │
-│                  "Fix the auth bug"                             │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ AI checks constraints (from primer knowledge)                   │
-│ > acp_constraints("src/auth/session.ts")                        │
-│ Returns: { lock: "restricted", behavior: "conservative" }       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ AI adapts behavior:                                             │
-│ - Explains changes before making them                           │
-│ - Uses conservative approach                                    │
-│ - Tracks debugging attempts                                     │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ AI starts debug session:                                        │
-│ > acp_debug("start", { problem: "401 errors" })                 │
-│ > acp_debug("attempt", { hypothesis: "race condition" })        │
-│                                                                 │
-│ If fails: acp_debug("revert", { attempt: 1 })                   │
-│ If works: acp_debug("resolve", { resolution: "..." })           │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## Context Budget
-
-| Component | Tokens | When |
-|-----------|--------|------|
-| Primer | 150-300 | Always |
-| MCP tools | ~400 | Available |
-| Tool calls | Variable | On demand |
-| **Total** | **~500** | **vs ~8000 for full spec** |
-
-## Key Annotations
-
-| Annotation | Purpose | AI Behavior |
-|------------|---------|-------------|
-| `@acp:lock frozen` | Don't modify | Refuses all changes |
-| `@acp:lock restricted` | Ask first | Explains, requests approval |
-| `@acp:style tailwindcss-v4` | Follow style | Uses specified conventions |
-| `@acp:ref <url>` | Documentation | Can fetch and consult |
-| `@acp:hack` | Temporary code | Tracks for cleanup |
-| `@acp:debug-session` | Debug tracking | Logs attempts for reversal |
-
-## File Structure
-
-```
-your-project/
-├── .acp.cache.json      # Codebase index (generated)
-├── .acp.vars.json       # Variables (generated)
-├── .acp.config.json     # Optional configuration
-├── AGENTS.md            # Project-specific AI instructions
-└── src/
-    └── auth/
-        └── session.ts   # Contains @acp:* annotations
-```
+---
 
 ## jq Quick Reference
+
+Query the cache directly with jq:
 
 ```bash
 # Check if you can modify a file
@@ -137,47 +430,61 @@ jq '.constraints.by_file["src/auth/session.ts"].mutation.level' .acp.cache.json
 jq '.constraints.by_lock_level.frozen' .acp.cache.json
 
 # Find expired hacks
-jq '.constraints.hacks | map(select(.expires < "2024-01-01"))' .acp.cache.json
+jq '.constraints.hacks | map(select(.expires < now | todate))' .acp.cache.json
 
 # Get symbol info
 jq '.symbols["validateSession"]' .acp.cache.json
+
+# List all domains
+jq '.domains | keys' .acp.cache.json
+
+# Get files in a domain
+jq '.domains.auth.files' .acp.cache.json
+
+# Show codebase stats
+jq '.stats' .acp.cache.json
 ```
 
-## Package Contents
+---
 
-```
-acp-complete.zip
-├── acp-rust/                    # Rust core implementation
-│   ├── src/                     # Library and CLI
-│   ├── schemas/                 # JSON schemas
-│   ├── docs/                    # Documentation
-│   │   ├── primers.md           # System prompt templates
-│   │   ├── constraints.md       # Constraint reference
-│   │   ├── integration-guide.md # Setup guide
-│   │   └── jq-queries.md        # Query reference
-│   └── examples/                # Example files
-│
-└── acp-mcp-server/              # MCP server
-    ├── src/index.ts             # Server implementation
-    ├── package.json
-    └── README.md
-```
+## MCP Integration (Coming Soon)
 
-## Why ACP?
+MCP (Model Context Protocol) server integration is planned to provide AI tools with direct access to:
 
-| Problem | ACP Solution |
-|---------|--------------|
-| AI doesn't understand codebase structure | Indexed in `.acp.cache.json` |
-| AI ignores style guides | `@acp:style` with reference URLs |
-| AI modifies critical code | `@acp:lock frozen/restricted` |
-| AI fixes break other things | Debug session tracking |
-| Temporary fixes become permanent | `@acp:hack` with expiration |
-| Full context too expensive | Variables + tiered loading |
+- **acp_constraints** — Check file constraints before modification
+- **acp_query** — Query symbols, files, and domains
+- **acp_debug** — Track debugging attempts
+- **acp_vars** — Expand variable references
 
-## Next Steps
+See the [roadmap](../docs/roadmap.md) for status.
 
-1. **Index your codebase**: `acp index . --vars`
-2. **Add primer to your AI**: Copy from `docs/primers.md`
-3. **Annotate critical files**: Add `@acp:lock`, `@acp:style`
-4. **Create AGENTS.md**: Project-specific instructions
-5. **Optional**: Set up MCP server for tool access
+---
+
+## Key Annotations
+
+| Annotation | Purpose | AI Behavior |
+|------------|---------|-------------|
+| `@acp:lock frozen` | Never modify | Refuses all changes |
+| `@acp:lock restricted` | Explain first | Describes changes before making them |
+| `@acp:lock approval-required` | Ask permission | Waits for explicit approval |
+| `@acp:style <guide>` | Follow style guide | Uses specified conventions |
+| `@acp:ref <url>` | Documentation reference | Can fetch and consult |
+| `@acp:hack` | Temporary code | Tracks for cleanup |
+| `@acp:debug-session` | Debug tracking | Logs attempts for reversal |
+
+See the [Annotation Reference](../spec/chapters/annotations.md) for the complete list.
+
+---
+
+## Related Documentation
+
+- [ACP Specification](../spec/ACP-1.0.md) — Complete protocol specification
+- [Root README](../README.md) — Project overview and quick start
+- [JSON Schemas](../schemas/) — Schema definitions for all file formats
+- [Annotation Reference](../spec/chapters/annotations.md) — All annotation types
+
+---
+
+## License
+
+MIT — see [LICENSE](../LICENSE)
