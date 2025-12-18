@@ -61,30 +61,114 @@ impl Parser {
     pub fn parse<P: AsRef<Path>>(&self, path: P) -> Result<ParseResult> {
         let path = path.as_ref();
         let content = std::fs::read_to_string(path)?;
-        let lang = Language::from_path(path)
+        let _lang = Language::from_path(path)
             .ok_or_else(|| AcpError::UnsupportedLanguage(
                 path.extension()
                     .map(|e| e.to_string_lossy().to_string())
                     .unwrap_or_default()
             ))?;
 
-        // TODO: Implement actual tree-sitter parsing
-        // For now, return a basic result with file metadata
         let lines = content.lines().count();
         let file_name = path.file_stem()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_default();
+        let file_path = path.to_string_lossy().to_string();
+
+        // Parse @acp: annotations from source
+        let annotations = self.parse_annotations(&content);
+
+        // Extract file-level metadata from annotations
+        let mut module_name = file_name.clone();
+        let mut domains = vec![];
+        let mut layer = None;
+        let mut symbols = vec![];
+        let mut symbol_names = vec![];
+        let mut calls = vec![];
+
+        // Track current symbol context for multi-line annotations
+        let mut current_symbol: Option<SymbolBuilder> = None;
+
+        for ann in &annotations {
+            match ann.name.as_str() {
+                "module" => {
+                    if let Some(val) = &ann.value {
+                        module_name = val.trim_matches('"').to_string();
+                    }
+                }
+                "domain" => {
+                    if let Some(val) = &ann.value {
+                        domains.push(val.trim_matches('"').to_string());
+                    }
+                }
+                "layer" => {
+                    if let Some(val) = &ann.value {
+                        layer = Some(val.trim_matches('"').to_string());
+                    }
+                }
+                "symbol" => {
+                    // Save previous symbol if exists
+                    if let Some(builder) = current_symbol.take() {
+                        let sym = builder.build(&file_path);
+                        symbol_names.push(sym.name.clone());
+                        symbols.push(sym);
+                    }
+                    // Start new symbol
+                    if let Some(val) = &ann.value {
+                        current_symbol = Some(SymbolBuilder::new(
+                            val.trim_matches('"').to_string(),
+                            ann.line,
+                        ));
+                    }
+                }
+                "summary" => {
+                    if let Some(ref mut builder) = current_symbol {
+                        if let Some(val) = &ann.value {
+                            builder.summary = Some(val.trim_matches('"').to_string());
+                        }
+                    }
+                }
+                "calls" => {
+                    if let Some(ref mut builder) = current_symbol {
+                        if let Some(val) = &ann.value {
+                            let callees: Vec<String> = val
+                                .split(',')
+                                .map(|s| s.trim().trim_matches('"').to_string())
+                                .collect();
+                            builder.calls.extend(callees);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Save last symbol
+        if let Some(builder) = current_symbol {
+            let sym = builder.build(&file_path);
+            if !sym.calls.is_empty() {
+                calls.push((sym.name.clone(), sym.calls.clone()));
+            }
+            symbol_names.push(sym.name.clone());
+            symbols.push(sym);
+        }
+
+        // Build call edges for earlier symbols
+        for sym in &symbols {
+            if !sym.calls.is_empty() {
+                calls.push((sym.name.clone(), sym.calls.clone()));
+            }
+        }
 
         let file = FileEntry {
-            path: path.to_string_lossy().to_string(),
-            module: file_name.clone(),
+            path: file_path,
+            module: module_name,
             lines,
-            domains: vec![],
-            layer: None,
+            domains,
+            layer,
             stability: Stability::Active,
             depends: vec![],
-            exports: vec![],
-            symbols: vec![],
+            exports: symbol_names.clone(),
+            symbols: symbol_names,
             keywords: vec![],
             hash: Some(format!("{:x}", md5::compute(&content))),
             guardrails: None,
@@ -92,8 +176,8 @@ impl Parser {
 
         Ok(ParseResult {
             file,
-            symbols: vec![],
-            calls: vec![],
+            symbols,
+            calls,
         })
     }
 
@@ -128,4 +212,42 @@ pub struct Annotation {
     pub name: String,
     pub value: Option<String>,
     pub line: usize,
+}
+
+/// Helper to build SymbolEntry from annotations
+struct SymbolBuilder {
+    name: String,
+    line: usize,
+    summary: Option<String>,
+    calls: Vec<String>,
+}
+
+impl SymbolBuilder {
+    fn new(name: String, line: usize) -> Self {
+        Self {
+            name,
+            line,
+            summary: None,
+            calls: vec![],
+        }
+    }
+
+    fn build(self, file_path: &str) -> SymbolEntry {
+        SymbolEntry {
+            name: self.name,
+            fqn: None,
+            symbol_type: SymbolType::Fn,
+            file: file_path.to_string(),
+            lines: [self.line, self.line + 10], // Approximate
+            summary: self.summary,
+            signature: None,
+            exported: true,
+            async_fn: false,
+            calls: self.calls,
+            throws: vec![],
+            flags: vec![],
+            side_effects: vec![],
+            complexity: None,
+        }
+    }
 }

@@ -112,13 +112,30 @@ impl Indexer {
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
-            .map(|e| e.path().to_string_lossy().to_string())
-            .filter(|path| {
+            .filter_map(|e| {
+                // Get path relative to root for pattern matching
+                let full_path = e.path().to_string_lossy().to_string();
+                let relative_path = e.path()
+                    .strip_prefix(root)
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|_| full_path.clone());
+
                 // Must match at least one include pattern
-                let included = include_patterns.iter().any(|p| p.matches(path));
+                let match_opts = glob::MatchOptions {
+                    case_sensitive: true,
+                    require_literal_separator: false,
+                    require_literal_leading_dot: false,
+                };
+                let included = include_patterns.is_empty() ||
+                    include_patterns.iter().any(|p| p.matches_with(&relative_path, match_opts));
                 // Must not match any exclude pattern
-                let excluded = exclude_patterns.iter().any(|p| p.matches(path));
-                included && !excluded
+                let excluded = exclude_patterns.iter().any(|p| p.matches_with(&relative_path, match_opts));
+
+                if included && !excluded {
+                    Some(full_path)
+                } else {
+                    None
+                }
             })
             .collect();
 

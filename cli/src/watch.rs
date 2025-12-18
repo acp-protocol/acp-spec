@@ -15,12 +15,12 @@ use crate::error::Result;
 
 /// File watcher for incremental updates
 pub struct FileWatcher {
-    config: AcpConfig,
+    _config: AcpConfig,
 }
 
 impl FileWatcher {
     pub fn new(config: AcpConfig) -> Self {
-        Self { config }
+        Self { _config: config }
     }
 
     /// Start watching for changes

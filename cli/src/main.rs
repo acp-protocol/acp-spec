@@ -273,7 +273,24 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Index { root, output, vars } => {
             println!("{} Indexing codebase...", style("→").cyan());
-            
+
+            // Use config from target root if it exists, otherwise use defaults
+            // This avoids pattern mismatches when indexing a subdirectory
+            let config = {
+                let root_config = root.join(".acp.config.json");
+                let root_str = root.to_string_lossy();
+                if root_config.exists() {
+                    // Config in target directory takes precedence
+                    Config::load(&root_config).unwrap_or_default()
+                } else if root_str != "." && root_str != "./" {
+                    // Indexing a subdirectory - use defaults to avoid pattern mismatches
+                    // (parent's "src/**/*" won't match files when root IS src/)
+                    Config::default()
+                } else {
+                    config
+                }
+            };
+
             let indexer = Indexer::new(config)?;
             let cache = indexer.index(&root).await?;
 
@@ -285,7 +302,13 @@ async fn main() -> anyhow::Result<()> {
 
             if vars {
                 let vars_file = indexer.generate_vars(&cache);
-                let vars_path = output.with_extension("vars.json");
+                // Replace .cache.json with .vars.json (or append .vars.json if different pattern)
+                let output_str = output.to_string_lossy();
+                let vars_path = if output_str.contains(".cache.json") {
+                    PathBuf::from(output_str.replace(".cache.json", ".vars.json"))
+                } else {
+                    output.with_extension("vars.json")
+                };
                 vars_file.write_json(&vars_path)?;
                 println!("{} Vars written to {}", style("✓").green(), vars_path.display());
             }

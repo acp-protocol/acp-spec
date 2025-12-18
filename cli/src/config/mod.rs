@@ -189,8 +189,7 @@ fn default_workers() -> usize {
     num_cpus::get().max(1)
 }
 
-// Fallback if num_cpus not available
-#[cfg(not(feature = "num_cpus"))]
+// Fallback mock for num_cpus
 mod num_cpus {
     pub fn get() -> usize {
         4
