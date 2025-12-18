@@ -301,6 +301,18 @@ async fn main() -> anyhow::Result<()> {
         Config::default()
     };
 
+    // Check for config requirement (all commands except init require .acp.config.json)
+    let requires_config = !matches!(cli.command, Commands::Init { .. });
+    if requires_config {
+        let config_path = PathBuf::from(".acp.config.json");
+        if !config_path.exists() {
+            eprintln!("{} No .acp.config.json found in project root", style("✗").red());
+            eprintln!("  Run 'acp init' to initialize the project");
+            eprintln!("  Use 'acp init --help' for configuration options");
+            std::process::exit(1);
+        }
+    }
+
     match cli.command {
         Commands::Init { force, include, exclude, cache_path, vars_path, workers, yes } => {
             use dialoguer::{theme::ColorfulTheme, Confirm, Input, MultiSelect};
@@ -442,8 +454,22 @@ async fn main() -> anyhow::Result<()> {
                 }
             };
 
-            let indexer = Indexer::new(config)?;
+            let indexer = Indexer::new(config.clone())?;
             let cache = indexer.index(&root).await?;
+
+            // Fail if no files were found
+            if cache.stats.files == 0 {
+                eprintln!("{} No files found matching include patterns", style("✗").red());
+                eprintln!("  Check your .acp.config.json include/exclude patterns");
+                eprintln!("  Current patterns:");
+                for pattern in &config.include {
+                    eprintln!("    include: {}", pattern);
+                }
+                for pattern in &config.exclude {
+                    eprintln!("    exclude: {}", pattern);
+                }
+                std::process::exit(1);
+            }
 
             // Create output directory if needed
             if let Some(parent) = output.parent() {
