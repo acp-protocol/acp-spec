@@ -1,4 +1,5 @@
-# AI Context Protocol (ACP)
+![ACP Header](public/github-headerGitHub%20Header.svg)
+
 
 > An open standard for embedding machine-readable context in codebases for AI-assisted development.
 
