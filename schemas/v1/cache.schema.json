@@ -202,6 +202,18 @@
           },
           "default": [],
           "description": "Imported modules"
+        },
+        "ai_hints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "AI behavioral hints (e.g., 'ai-careful', 'ai-readonly')"
+        },
+        "git": {
+          "$ref": "#/$defs/git_file_info",
+          "description": "Git metadata for the file"
         }
       }
     },
@@ -273,6 +285,10 @@
           },
           "default": [],
           "description": "Symbols calling this (qualified names)"
+        },
+        "git": {
+          "$ref": "#/$defs/git_symbol_info",
+          "description": "Git metadata for the symbol"
         }
       }
     },
@@ -331,6 +347,60 @@
             "type": "string"
           },
           "description": "Quality constraints"
+        }
+      }
+    },
+    "git_file_info": {
+      "type": "object",
+      "description": "Git metadata for a file",
+      "required": ["last_commit", "last_author", "last_modified", "commit_count", "contributors"],
+      "properties": {
+        "last_commit": {
+          "type": "string",
+          "description": "SHA of the last commit that modified this file",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "last_author": {
+          "type": "string",
+          "description": "Author of the last commit"
+        },
+        "last_modified": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of the last modification"
+        },
+        "commit_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of commits that have modified this file"
+        },
+        "contributors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of unique contributors to this file"
+        }
+      }
+    },
+    "git_symbol_info": {
+      "type": "object",
+      "description": "Git metadata for a symbol",
+      "required": ["last_commit", "last_author", "code_age_days"],
+      "properties": {
+        "last_commit": {
+          "type": "string",
+          "description": "SHA of the last commit that modified this symbol",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "last_author": {
+          "type": "string",
+          "description": "Author of the last commit that modified this symbol"
+        },
+        "code_age_days": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of days since this code was last modified"
         }
       }
     }

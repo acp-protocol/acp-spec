@@ -47,9 +47,15 @@ These annotations are indexed into a structured JSON cache that any AI tool can 
 
 🔤 **Variables** — Token-efficient references (`$SYM_VALIDATE_SESSION` expands to full context)
 
+🌳 **AST Parsing** — Tree-sitter based symbol extraction for accurate code analysis
+
+📊 **Git Integration** — Blame tracking, file history, and contributor metadata per symbol
+
+🔄 **Tool Sync** — Automatic synchronization to Cursor, Claude Code, Copilot, and more
+
 🔌 **Tool Agnostic** — Works with Claude, GPT, Copilot, Cursor, or any AI that can read JSON
 
-🌐 **Language Agnostic** — TypeScript, Python, Rust, Go, Java, and any language with comments
+🌐 **Language Support** — TypeScript, JavaScript, Python, Rust, Go, and Java with full AST parsing
 
 ---
 
@@ -58,15 +64,13 @@ These annotations are indexed into a structured JSON cache that any AI tool can 
 ### 1. Install the CLI
 
 ```bash
-# Homebrew (macOS/Linux)
-brew tap acp-protocol/tap
-brew install acp-cli
+# From source (Rust required)
+git clone https://github.com/acp-protocol/acp-spec.git
+cd acp-spec/cli
+cargo install --path .
 
-# Cargo (Rust)
-cargo install acp-protocol-cli
-
-# npm
-npm install -g @acp-protocol/cli
+# Or build directly
+cargo build --release
 ```
 
 ### 2. Initialize Your Project
@@ -76,7 +80,7 @@ cd your-project
 acp init
 ```
 
-This creates `.acp.config.json` with sensible defaults.
+This auto-detects languages and creates `.acp.config.json` with sensible defaults.
 
 ### 3. Add Annotations to Your Code
 
@@ -96,19 +100,25 @@ def validate_token(token: str) -> bool:
 acp index
 ```
 
-This generates `.acp.cache.json` with your codebase structure.
+This generates `.acp.cache.json` with your codebase structure, symbols, call graph, and git metadata.
 
 ### 5. Query the Index
 
 ```bash
-# List all domains
-acp query '.domains | keys'
+# Look up a symbol
+acp query symbol validate_token
 
-# Get authentication files
-acp query '.domains.auth.files'
+# Find all callers of a function
+acp query callers validate_token
+
+# List all domains
+acp query domains
 
 # Check constraints on a file
-acp constraints src/auth/session.py
+acp check src/auth/session.py
+
+# Expand variable references
+acp expand "Check \$SYM_VALIDATE_TOKEN"
 ```
 
 ---
@@ -119,46 +129,57 @@ acp constraints src/auth/session.py
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   Your Code     │     │   ACP CLI       │     │   AI Tools      │
 │                 │     │                 │     │                 │
-│  @acp:domain X  │────▶│  acp index      │────▶│  Read cache     │
-│  @acp:lock Y    │     │                 │     │  Respect rules  │
-│  @acp:summary Z │     │  .acp.cache.json│     │  Better context │
+│  @acp:domain X  │────▶│  Tree-sitter    │────▶│  Read cache     │
+│  @acp:lock Y    │     │  AST parsing    │     │  Respect rules  │
+│  @acp:summary Z │     │  Git metadata   │     │  Better context │
+│                 │     │  .acp.cache.json│     │                 │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
 1. **Annotate** — Add `@acp:` annotations in code comments
-2. **Index** — Run `acp index` to generate the cache
+2. **Index** — Run `acp index` to parse AST, extract symbols, and generate the cache
 3. **Consume** — AI tools read the cache and respect your constraints
 
 ---
 
 ## Documentation
 
-| Document | Description |
+### Specification Chapters
+
+| Chapter | Description |
+|---------|-------------|
+| [Full Specification](./spec/ACP-1.0.md) | Complete protocol specification |
+| [Introduction](./spec/chapters/01-introduction.md) | Overview and design principles |
+| [Annotations](./spec/chapters/05-annotations.md) | All annotation types |
+| [Constraints](./spec/chapters/06-constraints.md) | Lock levels and rules |
+| [Variables](./spec/chapters/07-variables.md) | Variable system |
+| [Querying](./spec/chapters/10-querying.md) | Query interfaces |
+| [Tool Integration](./spec/chapters/11-tool-integration.md) | AI tool sync |
+| [Debug Sessions](./spec/chapters/13-debug-sessions.md) | Attempt tracking |
+
+### Additional Resources
+
+| Resource | Description |
 |----------|-------------|
-| [Specification](./spec/ACP-1.0.md) | Complete protocol specification |
-| [Getting Started](./docs/getting-started.md) | Step-by-step tutorial |
-| [Annotation Reference](./spec/chapters/annotations.md) | All annotation types |
-| [Constraint Reference](./spec/chapters/constraints.md) | Lock levels and rules |
-| [Variable Reference](./spec/chapters/vars.md) | Variable system |
 | [CLI Reference](./cli/README.md) | Command-line interface |
-
-### Integrations
-
-- [Claude Desktop (MCP)](./docs/integrations/claude-desktop.md)
-- [Cursor](./docs/integrations/cursor.md)
-- [GitHub Copilot](./docs/integrations/github-copilot.md)
+| [Testing Guide](./cli/docs/TESTING_GUIDE.md) | Testing the CLI |
+| [Cache Format](./spec/chapters/03-cache-format.md) | Cache file structure |
+| [Config Format](./spec/chapters/04-config-format.md) | Configuration options |
 
 ---
 
 ## File Formats
 
-ACP uses three JSON files:
+ACP uses six JSON schemas:
 
 | File | Purpose | Schema |
 |------|---------|--------|
 | `.acp.config.json` | Project configuration | [config.schema.json](./schemas/v1/config.schema.json) |
 | `.acp.cache.json` | Indexed codebase cache | [cache.schema.json](./schemas/v1/cache.schema.json) |
 | `.acp.vars.json` | Variable definitions | [vars.schema.json](./schemas/v1/vars.schema.json) |
+| `.acp/acp.attempts.json` | Debug session tracking | [attempts.schema.json](./schemas/v1/attempts.schema.json) |
+| `.acp/acp.sync.json` | Tool sync configuration | [sync.schema.json](./schemas/v1/sync.schema.json) |
+| `primer.*.json` | AI context primers | [primer.schema.json](./schemas/v1/primer.schema.json) |
 
 All schemas are available in the [JSON Schema Store](https://www.schemastore.org/) for IDE autocomplete.
 
@@ -204,7 +225,7 @@ function processPayment(amount, card) { }
 // @acp:debug session=auth-bug-42 status=active
 ```
 
-See the [Annotation Reference](./spec/chapters/annotations.md) for the complete list.
+See the [Annotation Reference](./spec/chapters/05-annotations.md) for the complete list.
 
 ---
 
@@ -240,15 +261,62 @@ Variables are defined in `.acp.vars.json` and expand to full context automatical
 
 ---
 
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `acp init` | Initialize a new ACP project with auto-detected languages |
+| `acp index` | Index the codebase using AST parsing and generate cache |
+| `acp vars` | Generate variable definitions from cache |
+| `acp query <subcommand>` | Query symbols, files, domains, callers, callees, stats |
+| `acp expand <text>` | Expand variable references in text |
+| `acp check <file>` | Check constraints and guardrails on a file |
+| `acp validate <file>` | Validate JSON files against ACP schemas |
+| `acp watch` | Watch for file changes and auto-update cache |
+| `acp attempt <subcommand>` | Manage debug sessions (start, fail, verify, revert) |
+| `acp chain <var>` | Show variable inheritance chains |
+
+### Query Subcommands
+
+```bash
+acp query symbol <name>     # Look up a specific symbol
+acp query file <path>       # Get file information
+acp query callers <symbol>  # Find all callers of a function
+acp query callees <symbol>  # Find all functions called by a symbol
+acp query domains           # List all code domains
+acp query domain <name>     # Get details of a specific domain
+acp query hotpaths          # List frequently-called symbols
+acp query stats             # Show aggregate statistics
+```
+
+### Debug Session Commands
+
+```bash
+acp attempt start <id>      # Begin a new debugging attempt
+acp attempt fail <id>       # Mark attempt as failed
+acp attempt verify <id>     # Mark attempt as successful
+acp attempt revert <id>     # Revert changes from attempt
+acp checkpoint <name>       # Create a named checkpoint
+acp checkpoints             # List all checkpoints
+acp restore <name>          # Restore to a checkpoint
+```
+
+---
+
 ## Roadmap
 
 - [x] Core specification v1.0
-- [x] JSON schemas
-- [ ] Reference CLI implementation
+- [x] JSON schemas (6 schemas)
+- [x] Reference CLI implementation (Rust)
+- [x] Tree-sitter AST parsing (6 languages)
+- [x] Git2 integration (blame, history, contributors)
+- [x] Schema validation with semantic checks
+- [x] Debug session & checkpoint tracking
 - [ ] MCP server for Claude Desktop
 - [ ] VS Code extension
 - [ ] Language server protocol (LSP)
 - [ ] GitHub Action for CI validation
+- [ ] Package distribution (Homebrew, npm, crates.io)
 
 See the [full roadmap](./docs/roadmap.md) for details.
 

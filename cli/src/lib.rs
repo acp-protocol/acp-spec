@@ -35,11 +35,13 @@
 //! }
 //! ```
 
+pub mod ast;
 pub mod cache;
 pub mod config;
 pub mod constraints;
 pub mod error;
 pub mod expand;
+pub mod git;
 pub mod index;
 pub mod parse;
 pub mod query;
@@ -60,6 +62,8 @@ pub use constraints::{
     GuardrailEnforcer, FileGuardrails, GuardrailParser,
 };
 pub use error::{AcpError, Result};
+pub use git::{GitRepository, BlameInfo, FileHistory, GitFileInfo, GitSymbolInfo};
+pub use ast::{AstParser, ExtractedSymbol, SymbolKind, Visibility, Import, FunctionCall};
 pub use index::Indexer;
 pub use parse::Parser;
 pub use query::Query;

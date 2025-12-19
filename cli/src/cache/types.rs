@@ -14,6 +14,7 @@ use std::path::Path;
 
 use crate::constraints::ConstraintIndex;
 use crate::error::Result;
+use crate::git::{GitFileInfo, GitSymbolInfo};
 
 /// @acp:summary "Complete ACP cache file structure (schema-compliant)"
 /// @acp:lock normal
@@ -189,6 +190,11 @@ impl CacheBuilder {
         self
     }
 
+    pub fn set_git_commit(mut self, commit: String) -> Self {
+        self.cache.git_commit = Some(commit);
+        self
+    }
+
     pub fn build(mut self) -> Cache {
         self.cache.update_stats();
         self.cache
@@ -247,6 +253,9 @@ pub struct FileEntry {
     /// AI behavioral hints (e.g., "ai-careful", "ai-readonly")
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ai_hints: Vec<String>,
+    /// Git metadata (optional - last commit, author, contributors)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git: Option<GitFileInfo>,
 }
 
 /// @acp:summary "Symbol entry with metadata (schema-compliant)"
@@ -283,6 +292,9 @@ pub struct SymbolEntry {
     /// Symbols calling this (optional)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub called_by: Vec<String>,
+    /// Git metadata (optional - last commit, author, code age)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git: Option<GitSymbolInfo>,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -394,6 +406,7 @@ mod tests {
                 visibility: Visibility::Public,
                 calls: vec![],
                 called_by: vec![],
+                git: None,
             })
             .build();
 

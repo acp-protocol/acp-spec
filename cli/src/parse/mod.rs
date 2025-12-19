@@ -213,6 +213,7 @@ impl Parser {
             layer,
             stability: None,
             ai_hints: ai_hints.clone(),
+            git: None,
         };
 
         Ok(ParseResult {
@@ -293,6 +294,7 @@ impl SymbolBuilder {
             visibility: Visibility::Public,
             calls: self.calls,
             called_by: vec![], // Populated later by indexer
+            git: None,
         }
     }
 }

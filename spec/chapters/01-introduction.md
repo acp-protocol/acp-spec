@@ -393,20 +393,21 @@ AI: I found the issue in validateSession. This function is marked as
 
 This specification is organized into the following chapters:
 
-| Chapter | Title | Description |
-|---------|-------|-------------|
-| 01 | Introduction | Overview, goals, non-goals (this document) |
-| 02 | Terminology | Definitions and RFC 2119 keywords |
-| 03 | Cache Format | `.acp.cache.json` structure and fields |
-| 04 | Config Format | `.acp.config.json` structure and options |
-| 05 | Annotations | Annotation syntax and semantics |
-| 06 | Constraints | Lock levels, style, behavior, quality |
-| 07 | Variables | Variable system and expansion |
-| 08 | Inheritance | Cascade and override rules |
-| 09 | Discovery | File discovery algorithm |
-| 10 | Querying | Query interface and patterns |
-| 11 | Versioning | Protocol versioning and compatibility |
-| 12 | Debug Sessions | Hack markers and debug tracking |
+| Chapter | Title            | Description                                |
+|---------|------------------|--------------------------------------------|
+| 01      | Introduction     | Overview, goals, non-goals (this document) |
+| 02      | Terminology      | Definitions and RFC 2119 keywords          |
+| 03      | Cache Format     | `.acp.cache.json` structure and fields     |
+| 04      | Config Format    | `.acp.config.json` structure and options   |
+| 05      | Annotations      | Annotation syntax and semantics            |
+| 06      | Constraints      | Lock levels, style, behavior, quality      |
+| 07      | Variables        | Variable system and expansion              |
+| 08      | Inheritance      | Cascade and override rules                 |
+| 09      | Discovery        | File discovery algorithm                   |
+| 10      | Querying         | Query interface and patterns               |
+| 11      | Tool Integration | Transparent AI tool context distribution   |
+| 12      | Versioning       | Protocol versioning and compatibility      |
+| 13      | Debug Sessions   | Hack markers and debug tracking            |
 
 ### 7.1 How to Read This Specification
 
@@ -435,11 +436,11 @@ This specification is organized into the following chapters:
 
 ACP defines three conformance levels:
 
-| Level | Name | Capabilities |
-|-------|------|--------------|
-| **Level 1** | Reader | Parse and query cache files |
-| **Level 2** | Standard | Generate cache, variables, enforce constraints |
-| **Level 3** | Full | MCP integration, debug sessions, watch mode |
+| Level         | Name     | Capabilities                                   |
+|---------------|----------|------------------------------------------------|
+| **Level 1**   | Reader   | Parse and query cache files                    |
+| **Level 2**   | Standard | Generate cache, variables, enforce constraints |
+| **Level 3**   | Full     | MCP integration, debug sessions, watch mode    |
 
 ### 8.2 Level 1: Reader
 
@@ -554,6 +555,12 @@ acp query '.symbols | to_entries | map(select(.key | contains("validate")))'
 - [Annotations](05-annotations.md) — Annotation syntax
 - [Constraints](06-constraints.md) — Constraint system
 - [Variables](07-variables.md) — Variable system
+- [Inheritance](08-inheritance.md) — 
+- [Discovery](09-discovery.md)
+- [Querying](10-querying.md)
+- [Tool Integration](11-tool-integrations.md)
+- [Versioning](12-versioning.md)
+- [Debug Sessions](13-debug-sessions.md)
 - [Main Specification](../ACP-1.0.md) — Complete protocol specification
 
 ---

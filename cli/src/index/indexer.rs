@@ -4,6 +4,7 @@
 //! @acp:layer service
 //!
 //! Walks the codebase and builds the cache/vars files.
+//! Uses tree-sitter AST parsing for symbol extraction and git2 for metadata.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -14,17 +15,21 @@ use rayon::prelude::*;
 use walkdir::WalkDir;
 use glob::Pattern;
 
-use crate::cache::{Cache, CacheBuilder, DomainEntry, Language};
+use crate::ast::{AstParser, ExtractedSymbol, SymbolKind, Visibility as AstVisibility};
+use crate::cache::{Cache, CacheBuilder, DomainEntry, Language, SymbolEntry, SymbolType, Visibility};
 use crate::config::Config;
 use crate::constraints::{ConstraintIndex, Constraints, MutationConstraint, LockLevel, HackMarker, HackType};
 use crate::error::Result;
+use crate::git::{GitRepository, BlameInfo, FileHistory, GitFileInfo, GitSymbolInfo};
 use crate::parse::Parser;
 use crate::vars::{VarsFile, VarEntry};
 
 /// @acp:summary "Codebase indexer with parallel file processing"
+/// Uses tree-sitter AST parsing for accurate symbol extraction and git2 for metadata.
 pub struct Indexer {
     config: Config,
     parser: Arc<Parser>,
+    ast_parser: Arc<AstParser>,
 }
 
 impl Indexer {
@@ -32,6 +37,7 @@ impl Indexer {
         Ok(Self {
             config,
             parser: Arc::new(Parser::new()),
+            ast_parser: Arc::new(AstParser::new()?),
         })
     }
 
@@ -45,6 +51,16 @@ impl Indexer {
             .unwrap_or_else(|| "project".to_string());
 
         let mut builder = CacheBuilder::new(&project_name, &root.to_string_lossy());
+
+        // Try to open git repository for metadata
+        let git_repo = GitRepository::open(root).ok();
+
+        // Set git commit if available
+        if let Some(ref repo) = git_repo {
+            if let Ok(commit) = repo.head_commit() {
+                builder = builder.set_git_commit(commit);
+            }
+        }
 
         // Find all matching files
         let files = self.find_files(root)?;
@@ -64,12 +80,96 @@ impl Indexer {
         }
 
         // Parse files in parallel using rayon
-        let results: Vec<_> = files
+        // Uses annotation parser as primary for metadata, AST parser for accurate symbols
+        let ast_parser = Arc::clone(&self.ast_parser);
+        let annotation_parser = Arc::clone(&self.parser);
+        let root_path = root.to_path_buf();
+
+        let mut results: Vec<_> = files
             .par_iter()
             .filter_map(|path| {
-                self.parser.parse(path).ok()
+                // Parse with annotation parser (metadata, domains, etc.)
+                let mut parse_result = annotation_parser.parse(path).ok()?;
+
+                // Try AST parsing for accurate symbol extraction
+                if let Ok(source) = std::fs::read_to_string(path) {
+                    if let Ok(ast_symbols) = ast_parser.parse_file(Path::new(path), &source) {
+                        // Convert AST symbols to cache symbols and merge
+                        let relative_path = Path::new(path)
+                            .strip_prefix(&root_path)
+                            .map(|p| p.to_string_lossy().to_string())
+                            .unwrap_or_else(|_| path.clone());
+
+                        let converted = convert_ast_symbols(&ast_symbols, &relative_path);
+
+                        // Merge: prefer AST symbols but keep annotation metadata
+                        if !converted.is_empty() {
+                            // Keep summaries from annotation parser
+                            let annotation_summaries: std::collections::HashMap<_, _> =
+                                parse_result.symbols.iter()
+                                    .filter_map(|s| s.summary.as_ref().map(|sum| (s.name.clone(), sum.clone())))
+                                    .collect();
+
+                            parse_result.symbols = converted;
+
+                            // Restore summaries from annotations
+                            for symbol in &mut parse_result.symbols {
+                                if symbol.summary.is_none() {
+                                    if let Some(sum) = annotation_summaries.get(&symbol.name) {
+                                        symbol.summary = Some(sum.clone());
+                                    }
+                                }
+                            }
+                        }
+
+                        // Extract calls from AST
+                        if let Ok(calls) = ast_parser.parse_calls(Path::new(path), &source) {
+                            for call in calls {
+                                if !call.caller.is_empty() {
+                                    parse_result.calls.push((call.caller.clone(), vec![call.callee.clone()]));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Some(parse_result)
             })
             .collect();
+
+        // Add git metadata sequentially (git2::Repository is not Sync)
+        if let Some(ref repo) = git_repo {
+            for parse_result in &mut results {
+                let file_path = &parse_result.file.path;
+                let relative_path = Path::new(file_path);
+
+                // Add git metadata for the file
+                if let Ok(history) = FileHistory::for_file(repo, relative_path, 100) {
+                    let latest = history.latest();
+                    parse_result.file.git = Some(GitFileInfo {
+                        last_commit: latest.map(|c| c.commit.clone()).unwrap_or_default(),
+                        last_author: latest.map(|c| c.author.clone()).unwrap_or_default(),
+                        last_modified: latest.map(|c| c.timestamp).unwrap_or_else(Utc::now),
+                        commit_count: history.commit_count(),
+                        contributors: history.contributors(),
+                    });
+                }
+
+                // Add git metadata for symbols using blame
+                if let Ok(blame) = BlameInfo::for_file(repo, relative_path) {
+                    for symbol in &mut parse_result.symbols {
+                        if let Some(line_blame) = blame.last_modified(symbol.lines[0], symbol.lines[1]) {
+                            let age_days = (Utc::now() - line_blame.timestamp).num_days().max(0) as u32;
+                            symbol.git = Some(GitSymbolInfo {
+                                last_commit: line_blame.commit.clone(),
+                                last_author: line_blame.author.clone(),
+                                code_age_days: age_days,
+                            });
+                        }
+                    }
+                }
+            }
+        }
 
         // Build cache from results
         let mut domains: std::collections::HashMap<String, Vec<String>> =
@@ -337,4 +437,54 @@ pub fn detect_language(path: &str) -> Option<Language> {
         "kt" | "kts" => Some(Language::Kotlin),
         _ => None,
     }
+}
+
+/// Convert AST-extracted symbols to cache SymbolEntry format
+fn convert_ast_symbols(ast_symbols: &[ExtractedSymbol], file_path: &str) -> Vec<SymbolEntry> {
+    ast_symbols.iter().map(|sym| {
+        let symbol_type = match sym.kind {
+            SymbolKind::Function => SymbolType::Function,
+            SymbolKind::Method => SymbolType::Method,
+            SymbolKind::Class => SymbolType::Class,
+            SymbolKind::Struct => SymbolType::Struct,
+            SymbolKind::Interface => SymbolType::Interface,
+            SymbolKind::Trait => SymbolType::Trait,
+            SymbolKind::Enum => SymbolType::Enum,
+            SymbolKind::EnumVariant => SymbolType::Enum,
+            SymbolKind::Constant => SymbolType::Const,
+            SymbolKind::Variable => SymbolType::Const,
+            SymbolKind::TypeAlias => SymbolType::Type,
+            SymbolKind::Module => SymbolType::Function, // No direct mapping
+            SymbolKind::Namespace => SymbolType::Function, // No direct mapping
+            SymbolKind::Property => SymbolType::Function, // No direct mapping
+            SymbolKind::Field => SymbolType::Function, // No direct mapping
+            SymbolKind::Impl => SymbolType::Class, // Map impl to class
+        };
+
+        let visibility = match sym.visibility {
+            AstVisibility::Public => Visibility::Public,
+            AstVisibility::Private => Visibility::Private,
+            AstVisibility::Protected => Visibility::Protected,
+            AstVisibility::Internal | AstVisibility::Crate => Visibility::Private,
+        };
+
+        let qualified_name = sym.qualified_name.clone()
+            .unwrap_or_else(|| format!("{}:{}", file_path, sym.name));
+
+        SymbolEntry {
+            name: sym.name.clone(),
+            qualified_name,
+            symbol_type,
+            file: file_path.to_string(),
+            lines: [sym.start_line, sym.end_line],
+            exported: matches!(sym.visibility, AstVisibility::Public),
+            signature: sym.signature.clone(),
+            summary: sym.doc_comment.clone(),
+            async_fn: sym.is_async,
+            visibility,
+            calls: vec![], // Populated separately from call graph
+            called_by: vec![], // Populated by graph builder
+            git: None, // Populated after symbol creation
+        }
+    }).collect()
 }
