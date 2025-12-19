@@ -32,7 +32,7 @@
         "$ref": "#/$defs/toolName"
       },
       "uniqueItems": true,
-      "description": "Explicit list of tools to sync to. Empty array means auto-detect."
+      "description": "Explicit list of tools to sync to. Empty array means auto-detect. Warning: same tool in both 'tools' and 'exclude' causes undefined behavior"
     },
     "exclude": {
       "type": "array",
@@ -40,7 +40,7 @@
         "$ref": "#/$defs/toolName"
       },
       "uniqueItems": true,
-      "description": "Tools to never sync to, even if detected"
+      "description": "Tools to never sync to, even if detected. Warning: same tool in both 'tools' and 'exclude' causes undefined behavior"
     },
     "primer": {
       "$ref": "#/$defs/globalPrimerConfig",

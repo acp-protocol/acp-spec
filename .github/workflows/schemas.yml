@@ -1,0 +1,193 @@
+name: Schema Validation
+
+on:
+  push:
+    paths:
+      - 'schemas/**'
+      - 'cli/**'
+      - '.github/workflows/schemas.yml'
+  pull_request:
+    paths:
+      - 'schemas/**'
+      - 'cli/**'
+      - '.github/workflows/schemas.yml'
+
+jobs:
+  validate-schemas:
+    name: Validate Schema Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ajv-cli
+        run: npm install -g ajv-cli ajv-formats
+
+      - name: Validate schema syntax (Draft-07)
+        run: |
+          for schema in schemas/v1/*.schema.json; do
+            echo "Validating $schema..."
+            ajv compile -s "$schema" --spec=draft7
+          done
+
+      - name: Check Schema Store requirements
+        run: |
+          for schema in schemas/v1/*.schema.json; do
+            echo "Checking Schema Store requirements for $schema..."
+            # Check required fields exist
+            jq -e '.["$schema"] and .["$id"] and .title and .description' "$schema" > /dev/null || {
+              echo "ERROR: $schema missing required Schema Store fields (\$schema, \$id, title, description)"
+              exit 1
+            }
+            # Check $id uses https
+            ID=$(jq -r '.["$id"]' "$schema")
+            if [[ ! "$ID" =~ ^https:// ]]; then
+              echo "ERROR: $schema \$id must use https://"
+              exit 1
+            fi
+            # Check $schema uses https
+            SCHEMA=$(jq -r '.["$schema"]' "$schema")
+            if [[ ! "$SCHEMA" =~ ^https:// ]]; then
+              echo "ERROR: $schema \$schema must use https://"
+              exit 1
+            fi
+            echo "✓ $schema passes Schema Store requirements"
+          done
+
+  test-cli-validation:
+    name: Test CLI Schema Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            cli/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('cli/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build CLI
+        working-directory: cli
+        run: cargo build --release
+
+      - name: Run schema validation tests
+        working-directory: cli
+        run: cargo test --test schema_validation
+
+      - name: Run all unit tests
+        working-directory: cli
+        run: cargo test
+
+  lint-schemas:
+    name: Lint Schemas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check JSON formatting
+        run: |
+          for schema in schemas/v1/*.schema.json; do
+            echo "Checking formatting of $schema..."
+            # Parse and re-format to check for valid JSON
+            if ! jq . "$schema" > /dev/null 2>&1; then
+              echo "ERROR: $schema is not valid JSON"
+              exit 1
+            fi
+            echo "✓ $schema is valid JSON"
+          done
+
+      - name: Check for duplicate keys
+        run: |
+          for schema in schemas/v1/*.schema.json; do
+            echo "Checking for duplicate keys in $schema..."
+            # jq will error on duplicate keys with -e
+            if ! jq -e 'true' "$schema" > /dev/null 2>&1; then
+              echo "ERROR: $schema may have duplicate keys"
+              exit 1
+            fi
+          done
+
+  test-fixtures:
+    name: Validate Test Fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ajv-cli
+        run: npm install -g ajv-cli ajv-formats
+
+      - name: Validate valid fixtures against schemas
+        run: |
+          declare -A SCHEMA_MAP=(
+            ["cache"]="schemas/v1/cache.schema.json"
+            ["config"]="schemas/v1/config.schema.json"
+            ["vars"]="schemas/v1/vars.schema.json"
+            ["attempts"]="schemas/v1/attempts.schema.json"
+            ["sync"]="schemas/v1/sync.schema.json"
+            ["primer"]="schemas/v1/primer.schema.json"
+          )
+
+          for schema_type in "${!SCHEMA_MAP[@]}"; do
+            schema="${SCHEMA_MAP[$schema_type]}"
+            valid_dir="cli/tests/fixtures/schemas/$schema_type/valid"
+
+            if [[ -d "$valid_dir" ]]; then
+              for fixture in "$valid_dir"/*.json; do
+                if [[ -f "$fixture" ]]; then
+                  echo "Validating $fixture against $schema..."
+                  ajv validate -s "$schema" -d "$fixture" --spec=draft7 || {
+                    echo "ERROR: Valid fixture $fixture failed validation"
+                    exit 1
+                  }
+                fi
+              done
+            fi
+          done
+
+      - name: Verify invalid fixtures fail validation
+        run: |
+          declare -A SCHEMA_MAP=(
+            ["cache"]="schemas/v1/cache.schema.json"
+            ["config"]="schemas/v1/config.schema.json"
+            ["vars"]="schemas/v1/vars.schema.json"
+            ["attempts"]="schemas/v1/attempts.schema.json"
+            ["sync"]="schemas/v1/sync.schema.json"
+            ["primer"]="schemas/v1/primer.schema.json"
+          )
+
+          for schema_type in "${!SCHEMA_MAP[@]}"; do
+            schema="${SCHEMA_MAP[$schema_type]}"
+            invalid_dir="cli/tests/fixtures/schemas/$schema_type/invalid"
+
+            if [[ -d "$invalid_dir" ]]; then
+              for fixture in "$invalid_dir"/*.json; do
+                if [[ -f "$fixture" ]]; then
+                  echo "Verifying $fixture fails validation against $schema..."
+                  if ajv validate -s "$schema" -d "$fixture" --spec=draft7 2>/dev/null; then
+                    echo "ERROR: Invalid fixture $fixture should have failed validation"
+                    exit 1
+                  fi
+                  echo "✓ $fixture correctly failed validation"
+                fi
+              done
+            fi
+          done

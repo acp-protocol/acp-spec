@@ -48,6 +48,10 @@ pub enum AcpError {
     #[error("Schema validation failed: {0}")]
     SchemaValidation(String),
 
+    /// Semantic validation failed (constraints that can't be expressed in JSON Schema)
+    #[error("Semantic validation failed: {0}")]
+    SemanticValidation(String),
+
     /// Language not supported
     #[error("Unsupported language: {0}")]
     UnsupportedLanguage(String),

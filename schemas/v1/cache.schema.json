@@ -322,7 +322,8 @@
         },
         "behavior": {
           "type": "string",
-          "description": "AI behavior constraint"
+          "enum": ["conservative", "balanced", "aggressive"],
+          "description": "AI behavior constraint (matches config.schema.json)"
         },
         "quality": {
           "type": "array",

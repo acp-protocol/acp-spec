@@ -38,7 +38,8 @@
     },
     "history": {
       "type": "array",
-      "description": "History of completed/reverted attempts",
+      "description": "History of completed/reverted attempts (max 1000 entries)",
+      "maxItems": 1000,
       "items": {
         "$ref": "#/$defs/attempt_history_entry"
       }
@@ -119,11 +120,12 @@
         "lines_changed": {
           "type": "array",
           "items": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0
           },
           "minItems": 2,
           "maxItems": 2,
-          "description": "[start_line, end_line] of changes"
+          "description": "[start_line, end_line] of changes. Semantic constraint: start_line <= end_line"
         }
       }
     },
