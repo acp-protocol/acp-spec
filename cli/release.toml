@@ -21,7 +21,8 @@ push-remote = "origin"
 publish = false
 
 # Pre-release hook: generate changelog before release
-pre-release-hook = ["git", "cliff", "-o", "CHANGELOG.md", "--tag", "{{version}}"]
+# Note: Requires git-cliff in PATH, or run manually before release
+# pre-release-hook = ["git-cliff", "-o", "CHANGELOG.md", "--tag", "{{version}}"]
 
 # Files to update version in (in addition to Cargo.toml)
 # [[pre-release-replacements]]

@@ -46,12 +46,7 @@ body = """
 footer = """
 ---
 
-{% for release in releases -%}
-{% if release.version -%}
-[{{ release.version | trim_start_matches(pat="v") }}]: {{ self::remote_url() }}/compare/v{{ release.previous.version }}...v{{ release.version }}
-{% endif -%}
-{% endfor -%}
-[Unreleased]: {{ self::remote_url() }}/compare/v{{ releases | last | get(key="version") }}...HEAD
+[Unreleased]: https://github.com/acp-protocol/acp-spec/compare/HEAD
 """
 
 # Remove leading and trailing whitespace

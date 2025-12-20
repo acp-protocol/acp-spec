@@ -5,124 +5,137 @@ All notable changes to the AI Context Protocol specification and reference imple
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2025-12-20
 
 ### Added
-- **Annotation Generator (`acp annotate`)**: Automated annotation suggestion and generation
-  - Doc comment conversion: JSDoc, TSDoc, Docstring, Rustdoc, Godoc, Javadoc
-  - Smart heuristics: naming patterns, path inference, visibility analysis, git history
-  - Multiple output formats: diff, json, summary
-  - CI mode with coverage threshold (`--check`, `--min-coverage`)
-  - Parallel file processing with configurable workers (`--workers`)
-  - Scope filtering (`--files-only`, `--symbols-only`, `--filter`)
-  - Convert-only mode (`--convert`) for doc-to-annotation migration
-  - Confidence scoring and source breakdown in output
-- **Variable Inheritance**: `refs` field for variable-to-variable references with chain traversal
-- **Extended Variable Types**: Added `layer`, `pattern`, `context` types to vars schema
-- **Variable Metadata**: Added `source` and `lines` fields to track variable origin in vars schema
-- **Formal Grammar**: W3C EBNF grammar for annotations with railroad diagrams (`spec/grammar/`)
-- **Specification Examples**: Minimal, complete, and edge-case examples (`spec/examples/`)
-- **CLI Implementation Guide**: Comprehensive Rust CLI development guide (`docs/rust-cli/`)
-- **GitHub Issue Templates**: Bug reports, feature requests, RFCs, documentation, questions
-- Initial public release preparation
-- JSON schemas for Schema Store submission
+
+- Add acp annotate command for automated annotation generation
 
 ### Changed
-- **CLI Architecture**: Refactored into modular structure
-  - Split `constraints.rs` (1425 lines) → `constraints/` module (4 files)
-  - Split `vars.rs` (540 lines) → `vars/` module (4 files)
-  - Organized cache, config, index, parse into submodules
-- **CLI README**: Complete rewrite with accurate command documentation for all 10 commands
-- **Specification Chapters**: Renumbered to 01-12 sequential format with updated content
 
+- Initial ACP spec release
+
+- Refactor CLI architecture and reorganize specification
+
+- Restructure CLI into modular architecture (constraints, vars, cache modules)
+- Rewrite CLI README with complete command documentation
+- Renumber spec chapters to sequential 01-12 format
+- Add formal W3C EBNF grammar with railroad diagrams
+- Add specification examples (minimal, complete, edge-cases)
+- Add CLI implementation guide for Rust developers
+- Add GitHub issue templates for community contributions
+
+- Fix CLI indexer bugs and build warnings
+
+- Fix glob pattern matching by using relative paths for pattern comparison
+- Fix vars file naming (.acp.vars.json instead of .acp.cache.vars.json)
+- Enhance parser to extract @acp: annotations and build symbols
+- Fix config resolution when indexing subdirectories
+- Remove unused cfg attribute and prefix unused variables with underscore
+
+- Update CLI to be fully compliant with JSON schemas
+
+- cache/types.rs: Update SymbolType, Stability, add Language/Visibility enums,
+  restructure FileEntry and SymbolEntry, add source_files to Cache
+- vars/mod.rs: Simplify VarsFile and VarEntry to match vars.schema.json
+- config/mod.rs: Add schema-compliant structure with optional sections
+- index/indexer.rs: Populate source_files, detect language, update generate_vars
+- parse/mod.rs: Use new schema-compliant types
+- main.rs: Fix references to removed fields, add output directory creation
+- query.rs: Update to work with new Cache structure
+- .gitignore: Add .acp/ generated output directory
+
+- Add variable inheritance and extended variable types
+
+- vars.schema.json: Add refs array for inheritance chains, source/lines
+  for origin tracking, layer/pattern/context types
+- CLI: Restore chain traversal logic, populate refs from call graph
+- Generate layer variables from file entries
+- Update CHANGELOG with new features
+
+- Fix path normalization in check command
+
+Handle ./prefix variations when looking up files in cache
+
+- Add constraint parsing and display to check command
+
+- Parser: Fix regex to match hyphenated annotation names (ai-careful, ai-readonly)
+- Parser: Extract @acp:lock, @acp:ai-careful, @acp:hack annotations from source
+- Cache: Add ai_hints field to FileEntry for behavioral hints
+- Indexer: Build ConstraintIndex from parsed lock levels and hack markers
+- Check command: Display lock level, AI hints, and requirement warnings
+
+- Fix attempt file tracking when creating checkpoints
+
+When creating a checkpoint, also track those files in the current
+active attempt so that file counts and cleanup work correctly.
+
+- Require config and prevent empty cache creation
+
+- Fail all commands (except init) if .acp.config.json is missing
+- Show helpful message directing users to run 'acp init'
+- Fail index command if no files match include patterns
+- Display current patterns to help debug configuration issues
+
+- Allow validate command without config file
+
+- Move attempts file to .acp/ and add schema
+
+- Change attempts file location from .acp.attempts.json to .acp/acp.attempts.json
+- Add $schema field to AttemptTracker for validation
+- Create attempts.schema.json defining all attempt tracking types
+
+- Add sync schema and improve schema validation
+
+- Add schemas/v1/sync.schema.json for AI tool synchronization config
+  - Support built-in tools (cursor, claude-code, copilot, etc.)
+  - Support custom tools via pattern ^custom-[a-z0-9-]+$
+  - Conditional sectionMarker requirement for section merge strategy
+  - Content options, custom adapters, hooks, and templates
+
+- Improve attempts.schema.json validation
+  - Add additionalProperties: false for strict validation
+  - Add minLength constraints on identifier fields
+  - Add pattern validation for MD5 hashes and git commit SHA
+  - Add git_commit field to tracked_checkpoint
+
+- Add sync section to config.schema.json
+  - Support inline sync config or boolean enable/disable
+
+- Update CLI attempts.rs
+  - Add git_commit field to TrackedCheckpoint struct
+  - Capture git commit SHA when creating checkpoints
+
+- Add primer schema, enhance schema validation, and add CI workflow
+
+- Add primer.schema.json for AI context bootstrapping definitions
+- Enhance schema.rs with full jsonschema validation
+- Add test fixtures for all 6 schemas (26 tests passing)
+- Add GitHub Actions workflow for schema validation
+- Update README with all Schema Store catalog entries
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+
+- Add tree-sitter AST parsing and git2 integration
+
+New features:
+- Tree-sitter based AST parsing for 6 languages (TypeScript, JavaScript,
+  Rust, Python, Go, Java)
+- Git2 integration with blame tracking, file history, and contributor metadata
+- Symbol extraction with signatures, visibility, generics, and doc comments
+- Git metadata per file (last commit, author, contributors) and per symbol
+  (code age, last modifier)
+
+Changes:
+- Add cli/src/ast/ module with AstParser and 6 language extractors
+- Add cli/src/git/ module with GitRepository, BlameInfo, FileHistory
+- Update cache types with GitFileInfo and GitSymbolInfo
+- Update cache.schema.json with git metadata definitions
+- Integrate AST parsing and git metadata into indexer
+- Update README with current capabilities, CLI commands, and roadmap
+- Add comprehensive testing guide
 ---
 
-## [1.0.0] - 2024-XX-XX
-
-### Added
-
-#### Specification
-- Complete ACP 1.0 specification
-- 12 main sections covering all protocol aspects
-- 3 appendices (Annotation Reference, Schema Reference, Language Support)
-
-#### Core Features
-- **Annotation System**: `@acp:` prefix annotations in code comments
-    - Module and symbol annotations
-    - Domain and layer organization
-    - Constraint annotations (lock, style, behavior, quality)
-    - Debug session tracking (hack, debug)
-    - Variable definitions
-
-- **Constraint System**: Graduated protection levels
-    - `frozen` - Never modify
-    - `restricted` - Explain changes first
-    - `approval-required` - Ask before changing
-    - `tests-required` - Must include tests
-    - `docs-required` - Must update documentation
-    - `review-required` - Flag for human review
-    - `normal` - No restrictions (default)
-    - `experimental` - Extra caution advised
-
-- **Variable System**: Token-efficient references
-    - Symbol variables (`$SYM_*`)
-    - File variables (`$FILE_*`)
-    - Domain variables (`$DOM_*`)
-    - Pattern variables (`$PAT_*`)
-    - Context variables (`$CTX_*`)
-    - Config variables (`$CFG_*`)
-
-- **Conformance Levels**: Three-tier implementation system
-    - Level 1 (Reader): Parse and query cache files
-    - Level 2 (Standard): Generate cache, variables, constraints
-    - Level 3 (Full): MCP integration, debug sessions, watch mode
-
-- **Error Handling**: Configurable strictness
-    - Permissive mode (default): Warn and continue
-    - Strict mode: Fail on first error
-    - Standardized error codes
-
-#### File Formats
-- `.acp.config.json` - Project configuration
-- `.acp.cache.json` - Indexed codebase cache
-- `.acp.vars.json` - Variable definitions
-
-#### JSON Schemas
-- `cache.schema.json` - Cache file validation
-- `config.schema.json` - Configuration validation
-- `vars.schema.json` - Variables file validation
-
-#### Documentation
-- Getting started guide
-- Annotation reference
-- Constraint reference
-- Variable reference
-- Integration guides (Claude Desktop, Cursor, GitHub Copilot)
-
-#### Reference Implementation
-- Rust CLI (`acp-protocol-cli`)
-- Commands: `init`, `index`, `query`, `vars`, `constraints`, `check`, `watch`
-- Multi-language support: TypeScript, Python, Rust, Go, Java
-
-### Technical Decisions
-- JSON field naming: `snake_case` throughout
-- Symbol qualification: `file/path:class.function` format
-- Extension namespace: `@acp:x-vendor:feature` convention
-- Default lock level: `normal` (no restrictions)
-- Undefined variables: Warn and leave literal
-- Staleness detection: Git-aware with timestamp fallback
-
----
-
-## [0.1.0] - 2024-XX-XX (Internal)
-
-### Added
-- Initial draft specification
-- Proof of concept CLI
-- Basic annotation parsing
-
----
-
-[Unreleased]: https://github.com/acp-protocol/acp-spec/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/acp-protocol/acp-spec/releases/tag/v1.0.0
-[0.1.0]: https://github.com/acp-protocol/acp-spec/releases/tag/v0.1.0
+[Unreleased]: https://github.com/acp-protocol/acp-spec/compare/HEAD
