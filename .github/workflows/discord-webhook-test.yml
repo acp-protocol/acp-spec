@@ -1,0 +1,119 @@
+name: Test Discord Webhook
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of test to run'
+        required: true
+        type: choice
+        options:
+          - release
+          - issue
+          - pr
+          - contributor
+          - simple
+
+env:
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+jobs:
+  test-webhook:
+    name: Test Discord Webhook
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Simple Message
+        if: github.event.inputs.test_type == 'simple'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "🧪 Discord Webhook Test"
+          description: |
+            This is a test message to verify the Discord webhook is working correctly!
+            
+            **Test Details:**
+            • Time: ${{ github.event.head_commit.timestamp || github.run_started_at }}
+            • Workflow: ${{ github.workflow }}
+            • Run ID: ${{ github.run_id }}
+            
+            If you see this message, your webhook is configured correctly! ✅
+          color: 0x4ECDC4
+          username: ACP Bot
+          avatar_url: https://github.com/acp-protocol.png
+
+      - name: Test Release Announcement
+        if: github.event.inputs.test_type == 'release'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "🎉 Test Release: ACP CLI v1.0.0-test"
+          description: |
+            **Version:** v1.0.0-test
+            
+            **What's New:**
+            • This is a test release announcement
+            • Webhook integration working
+            • Ready for real releases
+            
+            **Download:**
+            • [CLI Releases](https://github.com/acp-protocol/acp-spec/releases)
+            • [Installation Guide](https://github.com/acp-protocol/acp-spec/blob/main/cli/README.md#installation)
+            
+            **Note:** This is a test message. Real releases will be posted automatically.
+          color: 0x4ECDC4
+          username: ACP Bot
+
+      - name: Test Issue Notification
+        if: github.event.inputs.test_type == 'issue'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "🐛 Test Issue: Webhook Testing"
+          description: |
+            **Type:** bug
+            **Author:** Test User
+            
+            This is a test issue notification to verify the webhook works for issue events.
+            
+            **View Issue:** https://github.com/acp-protocol/acp-spec/issues
+            
+            **Note:** This is a test message. Real issues will be posted automatically.
+          color: 0xFF6B6B
+          username: ACP Bot
+
+      - name: Test PR Notification
+        if: github.event.inputs.test_type == 'pr'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "🔧 Test Pull Request: Webhook Testing"
+          description: |
+            **Author:** Test User
+            **Branch:** test-branch → main
+            
+            This is a test pull request notification to verify the webhook works for PR events.
+            
+            **View PR:** https://github.com/acp-protocol/acp-spec/pulls
+            
+            **Note:** This is a test message. Real PRs will be posted automatically.
+          color: 0x45B7D1
+          username: ACP Bot
+
+      - name: Test Contributor Recognition
+        if: github.event.inputs.test_type == 'contributor'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "🌟 Test Contributor Recognition"
+          description: |
+            Test User made their first contribution to ACP!
+            
+            **PR:** Test Pull Request
+            **View:** https://github.com/acp-protocol/acp-spec/pulls
+            
+            Thank you for contributing to the ACP project! 🎉
+            
+            **Note:** This is a test message. Real contributions will be recognized automatically.
+          color: 0xFFEAA7
+          username: ACP Bot
+

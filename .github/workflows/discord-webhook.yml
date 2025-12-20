@@ -1,0 +1,192 @@
+name: Discord Webhook Integration
+
+on:
+  release:
+    types: [published]
+  issues:
+    types: [opened, closed]
+  pull_request:
+    types: [opened, closed, merged]
+  push:
+    branches: [main]
+    paths:
+      - 'CHANGELOG.md'
+      - 'cli/Cargo.toml'
+
+env:
+  DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+jobs:
+  release-announcement:
+    name: Release Announcement
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    steps:
+      - name: Send Release Announcement
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "🎉 New Release: ${{ github.event.release.name }}"
+          description: |
+            **Version:** ${{ github.event.release.tag_name }}
+            
+            **What's New:**
+            ${{ github.event.release.body }}
+            
+            **Download:**
+            • [CLI Releases](https://github.com/acp-protocol/acp-spec/releases)
+            • [Installation Guide](https://github.com/acp-protocol/acp-spec/blob/main/cli/README.md#installation)
+            
+            **Full Changelog:** ${{ github.event.release.html_url }}
+          color: 0x4ECDC4
+          username: ACP Bot
+          avatar_url: https://github.com/acp-protocol.png
+
+  issue-notification:
+    name: Issue Notification
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues'
+    steps:
+      - name: Determine Issue Type
+        id: issue-type
+        run: |
+          LABELS="${{ join(github.event.issue.labels.*.name, ' ') }}"
+          if echo "$LABELS" | grep -q "bug"; then
+            echo "type=bug" >> $GITHUB_OUTPUT
+            echo "channel=bug-reports" >> $GITHUB_OUTPUT
+            echo "emoji=🐛" >> $GITHUB_OUTPUT
+          elif echo "$LABELS" | grep -q "enhancement\|feature"; then
+            echo "type=feature" >> $GITHUB_OUTPUT
+            echo "channel=feature-requests" >> $GITHUB_OUTPUT
+            echo "emoji=✨" >> $GITHUB_OUTPUT
+          else
+            echo "type=general" >> $GITHUB_OUTPUT
+            echo "channel=general" >> $GITHUB_OUTPUT
+            echo "emoji=📝" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Issue Notification
+        if: github.event.action == 'opened'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "${{ steps.issue-type.outputs.emoji }} New Issue: ${{ github.event.issue.title }}"
+          description: |
+            **Type:** ${{ steps.issue-type.outputs.type }}
+            **Author:** ${{ github.event.issue.user.login }}
+            
+            ${{ github.event.issue.body }}
+            
+            **View Issue:** ${{ github.event.issue.html_url }}
+            
+            Discuss in: <#${{ steps.issue-type.outputs.channel }}>
+          color: 0xFF6B6B
+          username: ACP Bot
+
+      - name: Send Issue Closed Notification
+        if: github.event.action == 'closed'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "✅ Issue Closed: ${{ github.event.issue.title }}"
+          description: |
+            Issue #${{ github.event.issue.number }} has been closed.
+            
+            **View Issue:** ${{ github.event.issue.html_url }}
+          color: 0x96CEB4
+          username: ACP Bot
+
+  pr-notification:
+    name: Pull Request Notification
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Send PR Notification
+        if: github.event.action == 'opened'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "🔧 New Pull Request: ${{ github.event.pull_request.title }}"
+          description: |
+            **Author:** ${{ github.event.pull_request.user.login }}
+            **Branch:** ${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}
+            
+            ${{ github.event.pull_request.body }}
+            
+            **View PR:** ${{ github.event.pull_request.html_url }}
+            
+            Discuss in: <#contributing>
+          color: 0x45B7D1
+          username: ACP Bot
+
+      - name: Send PR Merged Notification
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "✅ Pull Request Merged: ${{ github.event.pull_request.title }}"
+          description: |
+            PR #${{ github.event.pull_request.number }} by ${{ github.event.pull_request.user.login }} has been merged!
+            
+            **Changes:** ${{ github.event.pull_request.additions }} additions, ${{ github.event.pull_request.deletions }} deletions
+            
+            **View PR:** ${{ github.event.pull_request.html_url }}
+            
+            Thank you for contributing! 🎉
+          color: 0x96CEB4
+          username: ACP Bot
+
+  contributor-recognition:
+    name: Contributor Recognition
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    steps:
+      - name: Check if First Contribution
+        id: first-contribution
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: contributions } = await github.rest.repos.listContributors({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            const contributor = contributions.find(c => c.login === '${{ github.event.pull_request.user.login }}');
+            const isFirst = contributor && contributor.contributions === 1;
+            
+            core.setOutput('is_first', isFirst);
+
+      - name: Send First Contribution Recognition
+        if: steps.first-contribution.outputs.is_first == 'true'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "🌟 Welcome New Contributor: ${{ github.event.pull_request.user.login }}"
+          description: |
+            ${{ github.event.pull_request.user.login }} made their first contribution to ACP!
+            
+            **PR:** ${{ github.event.pull_request.title }}
+            **View:** ${{ github.event.pull_request.html_url }}
+            
+            Thank you for contributing to the ACP project! 🎉
+          color: 0xFFEAA7
+          username: ACP Bot
+
+  changelog-update:
+    name: Changelog Update Notification
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, 'changelog') || contains(github.event.head_commit.message, 'CHANGELOG')
+    steps:
+      - name: Send Changelog Update
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          title: "📝 Changelog Updated"
+          description: |
+            The changelog has been updated with new changes.
+            
+            **Commit:** ${{ github.event.head_commit.message }}
+            **View:** ${{ github.event.head_commit.url }}
+          color: 0xDDA0DD
+          username: ACP Bot
+
