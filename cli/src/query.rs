@@ -22,7 +22,12 @@ impl<'a> Query<'a> {
         self.cache.get_symbol(name)
     }
 
-    /// Get file by path
+    /// Get file by path with cross-platform path normalization
+    ///
+    /// Accepts various path formats:
+    /// - `src/file.ts` or `./src/file.ts`
+    /// - Windows paths: `src\file.ts`
+    /// - Paths with `..`: `src/../src/file.ts`
     pub fn file(&self, path: &str) -> Option<&FileEntry> {
         self.cache.get_file(path)
     }

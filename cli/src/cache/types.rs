@@ -16,6 +16,44 @@ use crate::constraints::ConstraintIndex;
 use crate::error::Result;
 use crate::git::{GitFileInfo, GitSymbolInfo};
 
+/// @acp:summary "Normalize a file path for cross-platform compatibility"
+///
+/// Handles:
+/// - Windows backslashes → forward slashes
+/// - Redundant slashes (`//` → `/`)
+/// - Relative components (`.` and `..`)
+/// - Leading `./` prefix normalization
+///
+/// # Examples
+/// ```
+/// use acp::cache::normalize_path;
+///
+/// assert_eq!(normalize_path("src/file.ts"), "src/file.ts");
+/// assert_eq!(normalize_path("./src/file.ts"), "src/file.ts");
+/// assert_eq!(normalize_path("src\\file.ts"), "src/file.ts");
+/// assert_eq!(normalize_path("src/../src/file.ts"), "src/file.ts");
+/// ```
+pub fn normalize_path(path: &str) -> String {
+    // Convert backslashes to forward slashes (Windows compatibility)
+    let path = path.replace('\\', "/");
+
+    // Split into components and resolve . and ..
+    let mut components: Vec<&str> = Vec::new();
+
+    for part in path.split('/') {
+        match part {
+            "" | "." => continue,  // Skip empty and current directory
+            ".." => {
+                // Go up one directory if possible
+                components.pop();
+            }
+            component => components.push(component),
+        }
+    }
+
+    components.join("/")
+}
+
 /// @acp:summary "Complete ACP cache file structure (schema-compliant)"
 /// @acp:lock normal
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,9 +137,41 @@ impl Cache {
         self.symbols.get(name)
     }
 
-    /// @acp:summary "Get a file by path - O(1) lookup"
+    /// @acp:summary "Get a file by path - O(1) lookup with cross-platform path normalization"
+    ///
+    /// Handles various path formats:
+    /// - With or without `./` prefix: `src/file.ts` and `./src/file.ts`
+    /// - Windows backslashes: `src\file.ts`
+    /// - Redundant separators: `src//file.ts`
+    /// - Relative components: `src/../src/file.ts`
     pub fn get_file(&self, path: &str) -> Option<&FileEntry> {
-        self.files.get(path)
+        // Try exact match first (fastest path)
+        if let Some(file) = self.files.get(path) {
+            return Some(file);
+        }
+
+        // Normalize and try variations
+        let normalized = normalize_path(path);
+
+        // Try normalized path directly
+        if let Some(file) = self.files.get(&normalized) {
+            return Some(file);
+        }
+
+        // Try with ./ prefix
+        let with_prefix = format!("./{}", &normalized);
+        if let Some(file) = self.files.get(&with_prefix) {
+            return Some(file);
+        }
+
+        // Try stripping ./ prefix from normalized
+        if let Some(stripped) = normalized.strip_prefix("./") {
+            if let Some(file) = self.files.get(stripped) {
+                return Some(file);
+            }
+        }
+
+        None
     }
 
     /// @acp:summary "Get callers of a symbol from reverse call graph"
@@ -415,5 +485,158 @@ mod tests {
 
         assert_eq!(parsed.project.name, "test");
         assert!(parsed.symbols.contains_key("test_fn"));
+    }
+
+    // ========================================================================
+    // Path Normalization Tests
+    // ========================================================================
+
+    #[test]
+    fn test_normalize_path_basic() {
+        // Simple paths should pass through
+        assert_eq!(normalize_path("src/file.ts"), "src/file.ts");
+        assert_eq!(normalize_path("file.ts"), "file.ts");
+        assert_eq!(normalize_path("a/b/c/file.ts"), "a/b/c/file.ts");
+    }
+
+    #[test]
+    fn test_normalize_path_dot_prefix() {
+        // Leading ./ should be stripped
+        assert_eq!(normalize_path("./src/file.ts"), "src/file.ts");
+        assert_eq!(normalize_path("./file.ts"), "file.ts");
+        assert_eq!(normalize_path("././src/file.ts"), "src/file.ts");
+    }
+
+    #[test]
+    fn test_normalize_path_windows_backslash() {
+        // Windows backslashes should be converted
+        assert_eq!(normalize_path("src\\file.ts"), "src/file.ts");
+        assert_eq!(normalize_path(".\\src\\file.ts"), "src/file.ts");
+        assert_eq!(normalize_path("a\\b\\c\\file.ts"), "a/b/c/file.ts");
+    }
+
+    #[test]
+    fn test_normalize_path_double_slashes() {
+        // Double slashes should be normalized
+        assert_eq!(normalize_path("src//file.ts"), "src/file.ts");
+        assert_eq!(normalize_path("a//b//c//file.ts"), "a/b/c/file.ts");
+        assert_eq!(normalize_path(".//src/file.ts"), "src/file.ts");
+    }
+
+    #[test]
+    fn test_normalize_path_parent_refs() {
+        // Parent directory references should be resolved
+        assert_eq!(normalize_path("src/../src/file.ts"), "src/file.ts");
+        assert_eq!(normalize_path("a/b/../c/file.ts"), "a/c/file.ts");
+        assert_eq!(normalize_path("a/b/c/../../d/file.ts"), "a/d/file.ts");
+        assert_eq!(normalize_path("./src/../src/file.ts"), "src/file.ts");
+    }
+
+    #[test]
+    fn test_normalize_path_current_dir() {
+        // Current directory references should be removed
+        assert_eq!(normalize_path("src/./file.ts"), "src/file.ts");
+        assert_eq!(normalize_path("./src/./file.ts"), "src/file.ts");
+        assert_eq!(normalize_path("a/./b/./c/file.ts"), "a/b/c/file.ts");
+    }
+
+    #[test]
+    fn test_normalize_path_mixed() {
+        // Mixed cases
+        assert_eq!(normalize_path(".\\src/../src\\file.ts"), "src/file.ts");
+        assert_eq!(normalize_path("./a\\b//../c//file.ts"), "a/c/file.ts");
+    }
+
+    // ========================================================================
+    // get_file Tests with Various Path Formats
+    // ========================================================================
+
+    fn create_test_cache_with_file() -> Cache {
+        let mut cache = Cache::new("test", ".");
+        cache.files.insert("./src/sample.ts".to_string(), FileEntry {
+            path: "./src/sample.ts".to_string(),
+            lines: 100,
+            language: Language::Typescript,
+            exports: vec![],
+            imports: vec![],
+            module: None,
+            summary: None,
+            domains: vec![],
+            layer: None,
+            stability: None,
+            ai_hints: vec![],
+            git: None,
+        });
+        cache
+    }
+
+    #[test]
+    fn test_get_file_exact_match() {
+        let cache = create_test_cache_with_file();
+        // Exact match should work
+        assert!(cache.get_file("./src/sample.ts").is_some());
+    }
+
+    #[test]
+    fn test_get_file_without_prefix() {
+        let cache = create_test_cache_with_file();
+        // Without ./ prefix should work
+        assert!(cache.get_file("src/sample.ts").is_some());
+    }
+
+    #[test]
+    fn test_get_file_windows_path() {
+        let cache = create_test_cache_with_file();
+        // Windows-style path should work
+        assert!(cache.get_file("src\\sample.ts").is_some());
+        assert!(cache.get_file(".\\src\\sample.ts").is_some());
+    }
+
+    #[test]
+    fn test_get_file_with_parent_ref() {
+        let cache = create_test_cache_with_file();
+        // Path with .. should work
+        assert!(cache.get_file("src/../src/sample.ts").is_some());
+        assert!(cache.get_file("./src/../src/sample.ts").is_some());
+    }
+
+    #[test]
+    fn test_get_file_double_slash() {
+        let cache = create_test_cache_with_file();
+        // Double slashes should work
+        assert!(cache.get_file("src//sample.ts").is_some());
+    }
+
+    #[test]
+    fn test_get_file_not_found() {
+        let cache = create_test_cache_with_file();
+        // Non-existent files should return None
+        assert!(cache.get_file("src/other.ts").is_none());
+        assert!(cache.get_file("other/sample.ts").is_none());
+    }
+
+    #[test]
+    fn test_get_file_stored_without_prefix() {
+        // Test when cache stores paths without ./ prefix
+        let mut cache = Cache::new("test", ".");
+        cache.files.insert("src/sample.ts".to_string(), FileEntry {
+            path: "src/sample.ts".to_string(),
+            lines: 100,
+            language: Language::Typescript,
+            exports: vec![],
+            imports: vec![],
+            module: None,
+            summary: None,
+            domains: vec![],
+            layer: None,
+            stability: None,
+            ai_hints: vec![],
+            git: None,
+        });
+
+        // All formats should find it
+        assert!(cache.get_file("src/sample.ts").is_some());
+        assert!(cache.get_file("./src/sample.ts").is_some());
+        assert!(cache.get_file("src\\sample.ts").is_some());
     }
 }
