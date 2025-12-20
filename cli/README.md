@@ -53,7 +53,19 @@ acp index
 
 This generates `.acp.cache.json` with your codebase structure, symbols, and constraints.
 
-### 2. Generate Variables
+### 2. Generate Annotations (Optional)
+
+```bash
+# Preview annotation suggestions
+acp annotate
+
+# Apply annotations to files
+acp annotate --apply
+```
+
+This analyzes your codebase and suggests ACP annotations based on doc comments and heuristics.
+
+### 3. Generate Variables
 
 ```bash
 acp index --vars
@@ -63,7 +75,7 @@ acp vars
 
 This creates `.acp.vars.json` with token-efficient variable definitions.
 
-### 3. Query the Cache
+### 4. Query the Cache
 
 ```bash
 # Show stats
@@ -118,6 +130,85 @@ acp index ./src --vars
 # Custom output path
 acp index -o build/cache.json
 ```
+
+---
+
+### `acp annotate`
+
+Generate ACP annotations from code analysis and documentation conversion.
+
+```bash
+acp annotate [PATH] [OPTIONS]
+
+Arguments:
+  PATH    Path to analyze (file or directory) [default: .]
+
+Options:
+      --apply                   Apply changes to files (default: preview only)
+      --convert                 Convert-only mode: only use doc comment conversion
+      --from <SOURCE>           Source documentation standard [default: auto]
+                                Values: auto, jsdoc, tsdoc, docstring, rustdoc, godoc, javadoc
+      --level <LEVEL>           Annotation generation level [default: standard]
+                                Values: minimal, standard, full
+      --format <FORMAT>         Output format [default: diff]
+                                Values: diff, json, summary
+      --filter <PATTERN>        Filter files by glob pattern
+      --files-only              Only annotate files (skip symbols)
+      --symbols-only            Only annotate symbols (skip file-level)
+      --check                   Exit with error if coverage below threshold (CI mode)
+      --min-coverage <PERCENT>  Minimum coverage threshold [default: 80]
+  -j, --workers <N>             Number of parallel workers [default: CPU count]
+```
+
+**Annotation Levels:**
+
+| Level | Includes |
+|-------|----------|
+| `minimal` | `@acp:summary` only |
+| `standard` | summary, domain, layer, lock |
+| `full` | All annotation types including stability, ai-hint |
+
+**Examples:**
+
+```bash
+# Preview annotations for current directory
+acp annotate
+
+# Apply annotations to files
+acp annotate --apply
+
+# Convert only existing doc comments (no heuristics)
+acp annotate --convert --apply
+
+# Generate minimal annotations from JSDoc
+acp annotate --from jsdoc --level minimal
+
+# CI mode: fail if coverage below 90%
+acp annotate --check --min-coverage 90
+
+# JSON output with breakdown
+acp annotate --format json
+
+# Summary with statistics
+acp annotate --format summary
+
+# Filter to specific files
+acp annotate --filter "src/auth/**/*.ts"
+
+# Parallel processing with 4 workers
+acp annotate -j 4
+
+# Only file-level annotations
+acp annotate --files-only --apply
+```
+
+**Output Formats:**
+
+| Format | Description |
+|--------|-------------|
+| `diff` | Unified diff showing proposed changes |
+| `json` | Structured JSON with suggestions, confidence scores, and breakdown |
+| `summary` | Statistics including coverage, type/source breakdown |
 
 ---
 

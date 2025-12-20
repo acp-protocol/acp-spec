@@ -149,8 +149,20 @@ impl BlameInfo {
                     path.display(),
                     root.display()
                 )))?
+                .to_path_buf()
         } else {
-            path
+            // Path is relative - need to make it relative to repo root
+            // Get current working directory and resolve the path
+            let cwd = std::env::current_dir()
+                .map_err(|e| AcpError::Other(format!("Failed to get current directory: {}", e)))?;
+            let absolute = cwd.join(path);
+            absolute.strip_prefix(root)
+                .map_err(|_| AcpError::Other(format!(
+                    "Path {} is not within repository root {}",
+                    absolute.display(),
+                    root.display()
+                )))?
+                .to_path_buf()
         };
 
         Ok(relative.to_string_lossy().to_string())

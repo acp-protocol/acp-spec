@@ -166,6 +166,88 @@ enum Commands {
         /// File to validate
         file: PathBuf,
     },
+
+    /// Generate ACP annotations from code analysis and documentation conversion
+    Annotate {
+        /// Path to analyze (file or directory)
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Apply changes to files (default: preview only)
+        #[arg(long)]
+        apply: bool,
+
+        /// Convert-only mode: only use doc comment conversion, disable heuristics
+        #[arg(long)]
+        convert: bool,
+
+        /// Source documentation standard to convert from
+        #[arg(long, value_enum, default_value = "auto")]
+        from: AnnotateFrom,
+
+        /// Annotation generation level
+        #[arg(long, value_enum, default_value = "standard")]
+        level: AnnotateLevelArg,
+
+        /// Output format
+        #[arg(long, value_enum, default_value = "diff")]
+        format: AnnotateFormat,
+
+        /// Filter files by glob pattern
+        #[arg(long)]
+        filter: Option<String>,
+
+        /// Only annotate files (skip symbols)
+        #[arg(long)]
+        files_only: bool,
+
+        /// Only annotate symbols (skip file-level)
+        #[arg(long)]
+        symbols_only: bool,
+
+        /// Exit with error if coverage below threshold (CI mode)
+        #[arg(long)]
+        check: bool,
+
+        /// Minimum coverage threshold for --check (default: 80%)
+        #[arg(long)]
+        min_coverage: Option<f32>,
+
+        /// Number of parallel workers (default: number of CPUs)
+        #[arg(long, short = 'j')]
+        workers: Option<usize>,
+    },
+}
+
+/// Source documentation standard for annotation conversion
+#[derive(clap::ValueEnum, Clone, Copy, Debug, Default)]
+enum AnnotateFrom {
+    #[default]
+    Auto,
+    Jsdoc,
+    Tsdoc,
+    Docstring,
+    Rustdoc,
+    Godoc,
+    Javadoc,
+}
+
+/// Annotation generation level
+#[derive(clap::ValueEnum, Clone, Copy, Debug, Default)]
+enum AnnotateLevelArg {
+    Minimal,
+    #[default]
+    Standard,
+    Full,
+}
+
+/// Output format for annotation results
+#[derive(clap::ValueEnum, Clone, Copy, Debug, Default)]
+enum AnnotateFormat {
+    #[default]
+    Diff,
+    Json,
+    Summary,
 }
 
 #[derive(Subcommand)]
@@ -844,7 +926,7 @@ async fn main() -> anyhow::Result<()> {
 
         Commands::Validate { file } => {
             let content = std::fs::read_to_string(&file)?;
-            
+
             if file.to_string_lossy().contains("cache") {
                 acp::schema::validate_cache(&content)?;
                 println!("{} Cache file is valid", style("✓").green());
@@ -853,6 +935,283 @@ async fn main() -> anyhow::Result<()> {
                 println!("{} Vars file is valid", style("✓").green());
             } else {
                 eprintln!("Unknown file type. Expected 'cache' or 'vars' in filename.");
+            }
+        }
+
+        Commands::Annotate {
+            path,
+            apply,
+            convert,
+            from,
+            level,
+            format,
+            filter,
+            files_only,
+            symbols_only,
+            check,
+            min_coverage,
+            workers,
+        } => {
+            use acp::annotate::{Analyzer, Suggester, Writer, AnnotateLevel, ConversionSource, OutputFormat};
+            use acp::git::GitRepository;
+            use rayon::prelude::*;
+            use std::sync::Arc;
+
+            // Configure thread pool if workers specified
+            if let Some(num_workers) = workers {
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(num_workers)
+                    .build_global()
+                    .ok(); // Ignore error if already initialized
+            }
+
+            println!("{} Analyzing codebase for annotations...", style("→").cyan());
+
+            // Convert CLI args to module types
+            let annotate_level = match level {
+                AnnotateLevelArg::Minimal => AnnotateLevel::Minimal,
+                AnnotateLevelArg::Standard => AnnotateLevel::Standard,
+                AnnotateLevelArg::Full => AnnotateLevel::Full,
+            };
+
+            let conversion_source = match from {
+                AnnotateFrom::Auto => ConversionSource::Auto,
+                AnnotateFrom::Jsdoc => ConversionSource::Jsdoc,
+                AnnotateFrom::Tsdoc => ConversionSource::Tsdoc,
+                AnnotateFrom::Docstring => ConversionSource::Docstring,
+                AnnotateFrom::Rustdoc => ConversionSource::Rustdoc,
+                AnnotateFrom::Godoc => ConversionSource::Godoc,
+                AnnotateFrom::Javadoc => ConversionSource::Javadoc,
+            };
+
+            let output_format = match format {
+                AnnotateFormat::Diff => OutputFormat::Diff,
+                AnnotateFormat::Json => OutputFormat::Json,
+                AnnotateFormat::Summary => OutputFormat::Summary,
+            };
+
+            // Create analyzer and suggester
+            // When --convert is set, only use documentation conversion (no heuristics)
+            let analyzer = Arc::new(Analyzer::new(&config)?.with_level(annotate_level));
+            let suggester = Arc::new(Suggester::new(annotate_level)
+                .with_conversion_source(conversion_source)
+                .with_heuristics(!convert));
+            let writer = Writer::new();
+
+            // Discover files
+            let files = analyzer.discover_files(&path, filter.as_deref())?;
+
+            if cli.verbose {
+                eprintln!("Found {} files to analyze", files.len());
+            }
+
+            // Clone path for parallel access
+            let repo_path = path.clone();
+
+            // Process files in parallel
+            let results: Vec<_> = files
+                .par_iter()
+                .filter_map(|file_path| {
+                    // Analyze file
+                    let analysis = match analyzer.analyze_file(file_path) {
+                        Ok(a) => a,
+                        Err(_) => return None,
+                    };
+
+                    // Open git repo per-thread for thread safety
+                    let git_repo = GitRepository::open(&repo_path).ok();
+
+                    // Generate suggestions (with git-based heuristics if repo is available)
+                    let mut suggestions = suggester.suggest_with_git(&analysis, git_repo.as_ref());
+
+                    // Filter by scope
+                    if files_only {
+                        suggestions.retain(|s| s.is_file_level());
+                    }
+                    if symbols_only {
+                        suggestions.retain(|s| !s.is_file_level());
+                    }
+
+                    Some((file_path.clone(), analysis, suggestions))
+                })
+                .collect();
+
+            // Aggregate results
+            let mut total_suggestions = 0;
+            let mut files_with_changes = 0;
+            let mut all_changes = Vec::new();
+            let mut all_results = Vec::new();
+
+            for (file_path, analysis, suggestions) in results {
+                all_results.push(analysis.clone());
+
+                if !suggestions.is_empty() {
+                    files_with_changes += 1;
+                    total_suggestions += suggestions.len();
+
+                    let changes = writer.plan_changes(&file_path, &suggestions, &analysis)?;
+                    all_changes.push((file_path, changes));
+                }
+            }
+
+            // Calculate statistics for output
+            use std::collections::HashMap;
+
+            let mut type_counts: HashMap<String, usize> = HashMap::new();
+            let mut source_counts: HashMap<String, usize> = HashMap::new();
+            let mut total_confidence: f32 = 0.0;
+            let mut suggestion_count: usize = 0;
+
+            for (_, changes) in &all_changes {
+                for change in changes {
+                    for suggestion in &change.annotations {
+                        let type_name = format!("{:?}", suggestion.annotation_type).to_lowercase();
+                        *type_counts.entry(type_name).or_insert(0) += 1;
+
+                        let source_name = format!("{:?}", suggestion.source);
+                        *source_counts.entry(source_name).or_insert(0) += 1;
+
+                        total_confidence += suggestion.confidence;
+                        suggestion_count += 1;
+                    }
+                }
+            }
+
+            let avg_confidence = if suggestion_count > 0 {
+                total_confidence / suggestion_count as f32
+            } else {
+                0.0
+            };
+
+            let coverage = Analyzer::calculate_total_coverage(&all_results);
+
+            // Output results
+            match output_format {
+                OutputFormat::Diff => {
+                    for (file_path, changes) in &all_changes {
+                        let diff = writer.generate_diff(file_path, changes)?;
+                        if !diff.is_empty() {
+                            println!("{}", diff);
+                        }
+                    }
+                }
+                OutputFormat::Json => {
+                    let output = serde_json::json!({
+                        "summary": {
+                            "files_analyzed": files.len(),
+                            "files_with_suggestions": files_with_changes,
+                            "total_suggestions": total_suggestions,
+                            "coverage_percent": coverage,
+                            "average_confidence": (avg_confidence * 100.0).round() / 100.0,
+                        },
+                        "breakdown": {
+                            "by_type": type_counts,
+                            "by_source": source_counts,
+                        },
+                        "files": all_changes.iter().map(|(path, changes)| {
+                            let file_suggestions: Vec<_> = changes.iter().flat_map(|c| {
+                                c.annotations.iter().map(|s| {
+                                    serde_json::json!({
+                                        "target": c.symbol_name.as_deref().unwrap_or("(file)"),
+                                        "line": s.line,
+                                        "type": format!("{:?}", s.annotation_type).to_lowercase(),
+                                        "value": s.value,
+                                        "source": format!("{:?}", s.source),
+                                        "confidence": (s.confidence * 100.0).round() / 100.0,
+                                    })
+                                }).collect::<Vec<_>>()
+                            }).collect();
+
+                            serde_json::json!({
+                                "path": path.display().to_string(),
+                                "suggestion_count": file_suggestions.len(),
+                                "suggestions": file_suggestions,
+                            })
+                        }).collect::<Vec<_>>(),
+                    });
+                    println!("{}", serde_json::to_string_pretty(&output)?);
+                }
+                OutputFormat::Summary => {
+                    println!("\n{}", style("Annotation Summary").bold());
+                    println!("==================");
+                    println!("Files analyzed:          {}", files.len());
+                    println!("Files with suggestions:  {}", files_with_changes);
+                    println!("Total suggestions:       {}", total_suggestions);
+                    println!("Current coverage:        {:.1}%", coverage);
+                    println!("Avg confidence:          {:.0}%", avg_confidence * 100.0);
+
+                    // Show breakdown by annotation type
+                    if !type_counts.is_empty() {
+                        println!("\n{}", style("By Annotation Type").bold());
+                        println!("------------------");
+                        let mut sorted_types: Vec<_> = type_counts.iter().collect();
+                        sorted_types.sort_by(|a, b| b.1.cmp(a.1)); // Sort by count descending
+                        for (type_name, count) in sorted_types {
+                            println!("  @acp:{:<14} {}", type_name, count);
+                        }
+                    }
+
+                    // Show breakdown by source
+                    if !source_counts.is_empty() && total_suggestions > 0 {
+                        println!("\n{}", style("By Suggestion Source").bold());
+                        println!("--------------------");
+                        for (source_name, count) in &source_counts {
+                            let pct = (*count as f32 / total_suggestions as f32) * 100.0;
+                            println!("  {:<20} {} ({:.0}%)", source_name, count, pct);
+                        }
+                    }
+
+                    if cli.verbose {
+                        println!("\n{}", style("File Details").bold());
+                        println!("------------");
+                        for (file_path, changes) in &all_changes {
+                            println!("\n{}:", file_path.display());
+                            for change in changes {
+                                let target = change.symbol_name.as_deref().unwrap_or("(file)");
+                                println!("  - {} @ line {}: {} annotations",
+                                    target, change.line, change.annotations.len());
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Apply changes if requested
+            if apply {
+                for (file_path, changes) in &all_changes {
+                    writer.apply_changes(file_path, changes)?;
+                    if cli.verbose {
+                        eprintln!("Updated: {}", file_path.display());
+                    }
+                }
+                eprintln!("\n{} Applied {} suggestions to {} files",
+                    style("✓").green(),
+                    total_suggestions,
+                    files_with_changes
+                );
+            } else if !check && total_suggestions > 0 {
+                eprintln!("\nRun with {} to write changes", style("--apply").cyan());
+            }
+
+            // CI mode: exit with error if coverage below threshold
+            if check {
+                let coverage = Analyzer::calculate_total_coverage(&all_results);
+                let threshold = min_coverage.unwrap_or(80.0);
+
+                if coverage < threshold {
+                    eprintln!("\n{} Coverage {:.1}% is below threshold {:.1}%",
+                        style("✗").red(),
+                        coverage,
+                        threshold
+                    );
+                    std::process::exit(1);
+                } else {
+                    println!("\n{} Coverage {:.1}% meets threshold {:.1}%",
+                        style("✓").green(),
+                        coverage,
+                        threshold
+                    );
+                }
             }
         }
     }

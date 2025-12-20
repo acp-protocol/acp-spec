@@ -73,6 +73,12 @@ rayon = "1.10"
 # Regex - Pattern matching for annotations
 regex = "1.11"
 
+# Diff generation - For annotation preview mode
+similar = "2.6"
+
+# Lazy static - Compiled regex patterns for doc parsing
+lazy_static = "1.5"
+
 # Logging - Structured diagnostics
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

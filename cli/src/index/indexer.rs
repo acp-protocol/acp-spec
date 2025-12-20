@@ -141,18 +141,22 @@ impl Indexer {
         if let Some(ref repo) = git_repo {
             for parse_result in &mut results {
                 let file_path = &parse_result.file.path;
-                let relative_path = Path::new(file_path);
+                // Strip "./" prefix if present - git expects paths like "src/lib.rs" not "./src/lib.rs"
+                let clean_path = file_path.strip_prefix("./").unwrap_or(file_path);
+                let relative_path = Path::new(clean_path);
 
-                // Add git metadata for the file
+                // Add git metadata for the file (only if we have valid git history)
                 if let Ok(history) = FileHistory::for_file(repo, relative_path, 100) {
-                    let latest = history.latest();
-                    parse_result.file.git = Some(GitFileInfo {
-                        last_commit: latest.map(|c| c.commit.clone()).unwrap_or_default(),
-                        last_author: latest.map(|c| c.author.clone()).unwrap_or_default(),
-                        last_modified: latest.map(|c| c.timestamp).unwrap_or_else(Utc::now),
-                        commit_count: history.commit_count(),
-                        contributors: history.contributors(),
-                    });
+                    if let Some(latest) = history.latest() {
+                        // Only set git info if we have actual commit data
+                        parse_result.file.git = Some(GitFileInfo {
+                            last_commit: latest.commit.clone(),
+                            last_author: latest.author.clone(),
+                            last_modified: latest.timestamp,
+                            commit_count: history.commit_count(),
+                            contributors: history.contributors(),
+                        });
+                    }
                 }
 
                 // Add git metadata for symbols using blame

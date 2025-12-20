@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Annotation Generator (`acp annotate`)**: Automated annotation suggestion and generation
+  - Doc comment conversion: JSDoc, TSDoc, Docstring, Rustdoc, Godoc, Javadoc
+  - Smart heuristics: naming patterns, path inference, visibility analysis, git history
+  - Multiple output formats: diff, json, summary
+  - CI mode with coverage threshold (`--check`, `--min-coverage`)
+  - Parallel file processing with configurable workers (`--workers`)
+  - Scope filtering (`--files-only`, `--symbols-only`, `--filter`)
+  - Convert-only mode (`--convert`) for doc-to-annotation migration
+  - Confidence scoring and source breakdown in output
 - **Variable Inheritance**: `refs` field for variable-to-variable references with chain traversal
 - **Extended Variable Types**: Added `layer`, `pattern`, `context` types to vars schema
 - **Variable Metadata**: Added `source` and `lines` fields to track variable origin in vars schema

@@ -267,6 +267,7 @@ Variables are defined in `.acp.vars.json` and expand to full context automatical
 |---------|-------------|
 | `acp init` | Initialize a new ACP project with auto-detected languages |
 | `acp index` | Index the codebase using AST parsing and generate cache |
+| `acp annotate [path]` | Generate ACP annotations from code analysis and doc comments |
 | `acp vars` | Generate variable definitions from cache |
 | `acp query <subcommand>` | Query symbols, files, domains, callers, callees, stats |
 | `acp expand <text>` | Expand variable references in text |
@@ -312,6 +313,7 @@ acp restore <name>          # Restore to a checkpoint
 - [x] Git2 integration (blame, history, contributors)
 - [x] Schema validation with semantic checks
 - [x] Debug session & checkpoint tracking
+- [x] Annotation generation (`acp annotate`) with doc conversion and heuristics
 - [ ] MCP server for Claude Desktop
 - [ ] VS Code extension
 - [ ] Language server protocol (LSP)

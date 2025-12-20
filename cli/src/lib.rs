@@ -35,6 +35,7 @@
 //! }
 //! ```
 
+pub mod annotate;
 pub mod ast;
 pub mod cache;
 pub mod config;
@@ -52,6 +53,11 @@ pub mod watch;
 pub mod attempts;
 
 // Re-exports
+pub use annotate::{
+    Analyzer as AnnotationAnalyzer, Suggester as AnnotationSuggester,
+    Writer as AnnotationWriter, AnnotateLevel, ConversionSource, OutputFormat,
+    Suggestion, AnalysisResult, FileChange,
+};
 pub use cache::{Cache, CacheBuilder, Language};
 pub use config::Config;
 pub use constraints::{
