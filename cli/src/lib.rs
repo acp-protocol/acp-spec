@@ -38,6 +38,7 @@
 pub mod annotate;
 pub mod ast;
 pub mod cache;
+pub mod commands;
 pub mod config;
 pub mod constraints;
 pub mod error;

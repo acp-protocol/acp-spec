@@ -28,6 +28,8 @@ Debug sessions and hack markers enable:
 - **Temporary Code Tracking**: Mark and manage temporary fixes
 - **Knowledge Preservation**: Document why changes were made
 
+Debug sessions are persisted in `.acp/acp.attempts.json`. See [Section 3.4 of the main specification](../ACP-1.0.md#34-attempts-file-acpacpattemptsJson) for file format.
+
 ### 1.2 Use Cases
 
 | Use Case | Feature | Benefit |

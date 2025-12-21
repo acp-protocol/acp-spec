@@ -12,7 +12,7 @@
 //! - Calculate annotation coverage metrics
 //! - Extract doc comments for potential conversion
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -140,19 +140,29 @@ impl Analyzer {
             // Associate annotations with their correct symbol targets
             self.associate_annotations_with_symbols(&mut result.existing_annotations, &symbols);
 
-            // Build set of annotated targets
-            let annotated_targets: HashSet<String> = result
-                .existing_annotations
-                .iter()
-                .map(|a| a.target.clone())
-                .collect();
+            // Build map of annotated targets -> annotation types they have
+            let annotated_types: HashMap<String, HashSet<AnnotationType>> = {
+                let mut map: HashMap<String, HashSet<AnnotationType>> = HashMap::new();
+                for ann in &result.existing_annotations {
+                    map.entry(ann.target.clone())
+                       .or_insert_with(HashSet::new)
+                       .insert(ann.annotation_type);
+                }
+                map
+            };
 
-            // Find gaps (symbols without annotations)
+            // Find gaps (symbols with missing annotation types)
             for symbol in &symbols {
                 if self.should_annotate_symbol(symbol) {
                     let target = symbol.qualified_name.as_ref().unwrap_or(&symbol.name);
 
-                    if !annotated_targets.contains(target) {
+                    // Get existing annotation types for this target
+                    let existing_types = annotated_types.get(target).cloned().unwrap_or_default();
+
+                    // Determine which annotation types are missing
+                    let missing = self.get_missing_annotation_types(symbol, &existing_types);
+
+                    if !missing.is_empty() {
                         let mut gap = AnnotationGap::new(target, symbol.start_line)
                             .with_symbol_kind(symbol.kind)
                             .with_visibility(symbol.visibility);
@@ -163,37 +173,45 @@ impl Analyzer {
 
                         // Set doc comment with calculated line range
                         if let Some(doc) = &symbol.doc_comment {
-                            let doc_line_count = doc.lines().count();
-                            if doc_line_count > 0 && symbol.start_line > doc_line_count {
-                                // Doc comment ends just before the symbol
-                                let doc_end = symbol.start_line - 1;
-                                let doc_start = doc_end.saturating_sub(doc_line_count - 1);
-                                gap = gap.with_doc_comment_range(doc, doc_start, doc_end);
+                            // Try to find actual doc comment boundaries in source
+                            if let Some((start, end)) = self.find_doc_comment_range(&content, symbol.start_line) {
+                                gap = gap.with_doc_comment_range(doc, start, end);
                             } else {
-                                gap = gap.with_doc_comment(doc);
+                                // Fallback to calculated range
+                                let doc_line_count = doc.lines().count();
+                                if doc_line_count > 0 && symbol.start_line > doc_line_count {
+                                    let doc_end = symbol.start_line - 1;
+                                    let doc_start = doc_end.saturating_sub(doc_line_count - 1);
+                                    gap = gap.with_doc_comment_range(doc, doc_start, doc_end);
+                                } else {
+                                    gap = gap.with_doc_comment(doc);
+                                }
                             }
                         }
 
-                        // Determine which annotations are missing
-                        gap.missing = self.get_missing_annotations(symbol, &annotated_targets);
-
-                        if !gap.missing.is_empty() {
-                            result.gaps.push(gap);
-                        }
+                        gap.missing = missing;
+                        result.gaps.push(gap);
                     }
                 }
             }
 
             // Check for file-level annotation gap
-            if !annotated_targets.contains(&path_str) {
+            let file_existing_types = annotated_types.get(&path_str).cloned().unwrap_or_default();
+            let mut file_missing = Vec::new();
+
+            if !file_existing_types.contains(&AnnotationType::Module) {
+                file_missing.push(AnnotationType::Module);
+            }
+            if self.level.includes(AnnotationType::Summary) && !file_existing_types.contains(&AnnotationType::Summary) {
+                file_missing.push(AnnotationType::Summary);
+            }
+            if self.level.includes(AnnotationType::Domain) && !file_existing_types.contains(&AnnotationType::Domain) {
+                file_missing.push(AnnotationType::Domain);
+            }
+
+            if !file_missing.is_empty() {
                 let mut file_gap = AnnotationGap::new(&path_str, 1);
-                file_gap.add_missing(AnnotationType::Module);
-                if self.level.includes(AnnotationType::Summary) {
-                    file_gap.add_missing(AnnotationType::Summary);
-                }
-                if self.level.includes(AnnotationType::Domain) {
-                    file_gap.add_missing(AnnotationType::Domain);
-                }
+                file_gap.missing = file_missing;
                 result.gaps.push(file_gap);
             }
         }
@@ -320,13 +338,12 @@ impl Analyzer {
     }
 
     /// @acp:summary "Determines which annotation types are missing for a symbol"
-    fn get_missing_annotations(
+    fn get_missing_annotation_types(
         &self,
         symbol: &ExtractedSymbol,
-        annotated_targets: &HashSet<String>,
+        existing_types: &HashSet<AnnotationType>,
     ) -> Vec<AnnotationType> {
         let mut missing = Vec::new();
-        let target = symbol.qualified_name.as_ref().unwrap_or(&symbol.name);
 
         // Check each annotation type at current level
         for annotation_type in self.level.included_types() {
@@ -335,20 +352,67 @@ impl Analyzer {
                 continue;
             }
 
-            // Check if this annotation already exists
-            let has_annotation = annotated_targets.iter().any(|t| t == target);
-
-            if !has_annotation {
+            // Check if this specific annotation type already exists
+            if !existing_types.contains(&annotation_type) {
                 missing.push(annotation_type);
             }
         }
 
         // @acp:summary is always recommended for exported symbols
-        if symbol.exported && !missing.contains(&AnnotationType::Summary) {
+        if symbol.exported && !existing_types.contains(&AnnotationType::Summary) && !missing.contains(&AnnotationType::Summary) {
             missing.insert(0, AnnotationType::Summary);
         }
 
         missing
+    }
+
+    /// @acp:summary "Finds the actual doc comment range by parsing source"
+    ///
+    /// Searches backward from the symbol line to find the JSDoc/doc comment
+    /// block boundaries (/** ... */). Returns (start_line, end_line) 1-indexed.
+    fn find_doc_comment_range(&self, content: &str, symbol_line: usize) -> Option<(usize, usize)> {
+        let lines: Vec<&str> = content.lines().collect();
+
+        // symbol_line is 1-indexed, convert to 0-indexed for array access
+        if symbol_line == 0 || symbol_line > lines.len() {
+            return None;
+        }
+
+        let mut end_line = None;
+        let mut start_line = None;
+
+        // Search backward from symbol (excluding the symbol line itself)
+        for i in (0..symbol_line.saturating_sub(1)).rev() {
+            let line = lines.get(i).map(|s| s.trim()).unwrap_or("");
+
+            // Found end of doc comment
+            if line.ends_with("*/") && end_line.is_none() {
+                end_line = Some(i + 1); // Convert back to 1-indexed
+            }
+
+            // Found start of doc comment
+            if line.starts_with("/**") || line == "/**" {
+                start_line = Some(i + 1); // Convert back to 1-indexed
+                break;
+            }
+
+            // If we haven't found end_line yet and hit non-comment/non-whitespace, stop
+            if end_line.is_none() {
+                // Allow: empty lines, decorator lines (@...), single-line comments
+                if !line.is_empty()
+                    && !line.starts_with("//")
+                    && !line.starts_with("@")
+                    && !line.starts_with("*")
+                {
+                    break;
+                }
+            }
+        }
+
+        match (start_line, end_line) {
+            (Some(s), Some(e)) if s <= e => Some((s, e)),
+            _ => None,
+        }
     }
 
     /// @acp:summary "Checks if a cache exists and has been initialized"

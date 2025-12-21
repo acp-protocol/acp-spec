@@ -140,13 +140,31 @@ fn default_include() -> Vec<String> {
 
 fn default_exclude() -> Vec<String> {
     vec![
+        // Package managers
         "**/node_modules/**".to_string(),
+        "**/vendor/**".to_string(),
+        // Build outputs
         "**/dist/**".to_string(),
         "**/build/**".to_string(),
         "**/target/**".to_string(),
-        "**/.git/**".to_string(),
-        "**/vendor/**".to_string(),
+        "**/out/**".to_string(),
+        // Framework-specific
+        "**/.next/**".to_string(),       // Next.js
+        "**/.nuxt/**".to_string(),       // Nuxt.js
+        "**/.output/**".to_string(),     // Nitro/Nuxt 3
+        "**/.svelte-kit/**".to_string(), // SvelteKit
+        "**/.vite/**".to_string(),       // Vite
+        "**/.turbo/**".to_string(),      // Turborepo
+        // Cache/temp
+        "**/.cache/**".to_string(),
+        "**/coverage/**".to_string(),
         "**/__pycache__/**".to_string(),
+        "**/.pytest_cache/**".to_string(),
+        // VCS
+        "**/.git/**".to_string(),
+        // IDE
+        "**/.idea/**".to_string(),
+        "**/.vscode/**".to_string(),
     ]
 }
 

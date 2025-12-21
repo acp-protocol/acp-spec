@@ -8,6 +8,7 @@
 use std::path::Path;
 use std::sync::mpsc;
 
+use console::style;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config};
 
 use crate::config::Config as AcpConfig;
@@ -44,12 +45,12 @@ impl FileWatcher {
                             // TODO: Incremental update based on event.kind
                         }
                         Err(e) => {
-                            eprintln!("Watch error: {}", e);
+                            eprintln!("{} Watch error: {}", style("✗").red(), e);
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("Channel error: {}", e);
+                    eprintln!("{} Channel error: {}", style("✗").red(), e);
                     break;
                 }
             }

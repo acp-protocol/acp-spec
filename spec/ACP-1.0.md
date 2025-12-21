@@ -1,8 +1,8 @@
 # AI Context Protocol (ACP) Specification
 
-**Version**: 1.0.0-revised
-**Date**: 2024-12-17
-**Status**: Revised Draft
+**Version**: 1.2.0
+**Date**: 2025-12-21
+**Status**: RFC-001 Compliant
 
 ---
 
@@ -52,6 +52,7 @@
 10. [Conformance Levels](#10-conformance-levels)
 11. [Error Handling](#11-error-handling)
 12. [Versioning](#12-versioning)
+13. [Bootstrap & AI Integration](#13-bootstrap--ai-integration) *(RFC-001)*
 
 **Appendices:**
 - [Appendix A: Complete Annotation Reference](#appendix-a-complete-annotation-reference)
@@ -135,13 +136,16 @@ ACP follows established conventions:
 
 <!-- CHANGED: v1 - Completed field specifications, added staleness detection, converted to snake_case per GAP-C3, GAP-C7, GAP-C8 -->
 
-ACP uses three JSON files:
+ACP uses six JSON files:
 
-| File | Purpose | Required |
-|------|---------|----------|
-| `.acp.cache.json` | Pre-computed codebase index | Yes |
-| `.acp.vars.json` | Variable definitions | Optional |
-| `.acp.config.json` | Configuration | Optional |
+| File                      | Purpose                     | Required   |
+|---------------------------|-----------------------------|------------|
+| `.acp.cache.json`         | Pre-computed codebase index | Yes        |
+| `.acp.vars.json`          | Variable definitions        | Optional   |
+| `.acp.config.json`        | Configuration               | Optional   |
+| `.acp/acp.attempts.json`  | Debugging attempt tracking  | Optional   |
+| `.acp/acp.sync.json`      | Tool synchronization        | Optional   |
+| `.acp.primer.json`        | AI context primer           | Optional   |
 
 All JSON files MUST use `snake_case` for field names.
 
@@ -180,34 +184,37 @@ The cache file contains a pre-computed index of the codebase.
 
 #### 3.1.2 Top-Level Fields
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `version` | string | ✓ MUST | - | SemVer version of ACP spec |
-| `generated_at` | string | ✓ MUST | - | ISO 8601 timestamp |
-| `git_commit` | string | ✗ MAY | null | Git commit SHA if in repo |
-| `project` | object | ✓ MUST | - | Project metadata |
-| `stats` | object | ⚠ SHOULD | {} | Aggregate statistics |
-| `source_files` | object | ✓ MUST | - | Map of file paths to modification times |
-| `files` | object | ✓ MUST | - | Map of file paths to FileEntry |
-| `symbols` | object | ✓ MUST | - | Map of qualified names to SymbolEntry |
-| `graph` | object | ⚠ SHOULD | {} | Call graph structure |
-| `domains` | object | ✗ MAY | {} | Domain classifications |
-| `constraints` | object | ⚠ SHOULD | {} | Constraint index for quick lookup |
+| Field          | Type   | Required  |  Default | Description                             |
+|----------------|--------|-----------|----------|-----------------------------------------|
+| `version`      | string | ✓ MUST    | -        | SemVer version of ACP spec              |
+| `generated_at` | string | ✓ MUST    | -        | ISO 8601 timestamp                      |
+| `git_commit`   | string | ✗ MAY     | null     | Git commit SHA if in repo               |
+| `project`      | object | ✓ MUST    | -        | Project metadata                        |
+| `stats`        | object | ⚠ SHOULD  | {}       | Aggregate statistics                    |
+| `source_files` | object | ✓ MUST    | -        | Map of file paths to modification times |
+| `files`        | object | ✓ MUST    | -        | Map of file paths to FileEntry          |
+| `symbols`      | object | ✓ MUST    | -        | Map of qualified names to SymbolEntry   |
+| `graph`        | object | ⚠ SHOULD  | {}       | Call graph structure                    |
+| `domains`      | object | ✗ MAY     | {}       | Domain classifications                  |
+| `constraints`  | object | ⚠ SHOULD  | {}       | Constraint index for quick lookup       |
 
 #### 3.1.3 FileEntry Specification
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `path` | string | ✓ MUST | - | Relative path from project root |
-| `module` | string | ⚠ SHOULD | null | Human-readable module name |
-| `summary` | string | ⚠ SHOULD | null | Brief file description |
-| `lines` | integer | ✓ MUST | - | Line count |
-| `language` | string | ✓ MUST | - | Programming language |
-| `domains` | string[] | ✗ MAY | [] | Domain classifications |
-| `layer` | string | ✗ MAY | null | Architectural layer |
-| `stability` | string | ✗ MAY | null | Stability level (stable, experimental, deprecated) |
-| `exports` | string[] | ⚠ SHOULD | [] | Exported symbols (qualified names) |
-| `imports` | string[] | ⚠ SHOULD | [] | Imported modules |
+| Field       | Type     | Required   | Default  | Description                                        |
+|-------------|----------|------------|----------|----------------------------------------------------|
+| `path`      | string   | ✓ MUST     | -        | Relative path from project root                    |
+| `module`    | string   | ⚠ SHOULD   | null     | Human-readable module name                         |
+| `summary`   | string   | ⚠ SHOULD   | null     | Brief file description                             |
+| `purpose`   | string   | ⚠ SHOULD   | null     | File purpose from @acp:purpose (RFC-001)           |
+| `owner`     | string   | ✗ MAY      | null     | Team ownership from @acp:owner (RFC-001)           |
+| `lines`     | integer  | ✓ MUST     | -        | Line count                                         |
+| `language`  | string   | ✓ MUST     | -        | Programming language                               |
+| `domains`   | string[] | ✗ MAY      | []       | Domain classifications                             |
+| `layer`     | string   | ✗ MAY      | null     | Architectural layer                                |
+| `stability` | string   | ✗ MAY      | null     | Stability level (stable, experimental, deprecated) |
+| `exports`   | string[] | ⚠ SHOULD   | []       | Exported symbols (qualified names)                 |
+| `imports`   | string[] | ⚠ SHOULD   | []       | Imported modules                                   |
+| `inline`    | array    | ✗ MAY      | []       | Inline annotations (RFC-001)                       |
 
 **Example:**
 ```json
@@ -215,34 +222,54 @@ The cache file contains a pre-computed index of the codebase.
   "path": "src/auth/session.ts",
   "module": "Session Management",
   "summary": "Handles user session lifecycle and validation",
+  "purpose": "User session lifecycle and JWT validation",
+  "owner": "security-team",
   "lines": 234,
   "language": "typescript",
   "domains": ["authentication"],
   "layer": "service",
   "stability": "stable",
   "exports": ["src/auth/session.ts:SessionService"],
-  "imports": ["jsonwebtoken", "src/db/users"]
+  "imports": ["jsonwebtoken", "src/db/users"],
+  "inline": [
+    {
+      "type": "critical",
+      "line": 45,
+      "directive": "Token validation - security boundary"
+    },
+    {
+      "type": "todo",
+      "line": 78,
+      "directive": "Add rate limiting"
+    }
+  ]
 }
 ```
 
 #### 3.1.4 SymbolEntry Specification
 
 <!-- CHANGED: v1 - Specified symbol qualification format per GAP-I17, Decision Q7 -->
+<!-- CHANGED: v1.1 - Added RFC-001 fields: purpose, params, returns, throws, constraints -->
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `name` | string | ✓ MUST | - | Simple symbol name |
-| `qualified_name` | string | ✓ MUST | - | Format: `file_path:class.symbol` |
-| `type` | string | ✓ MUST | - | Symbol type (fn, class, const, etc.) |
-| `file` | string | ✓ MUST | - | Containing file path |
-| `lines` | [int, int] | ✓ MUST | - | [start_line, end_line] |
-| `signature` | string | ⚠ SHOULD | null | Function signature if applicable |
-| `summary` | string | ⚠ SHOULD | null | Brief description |
-| `async` | boolean | ✗ MAY | false | Whether async |
-| `exported` | boolean | ✓ MUST | - | Whether exported |
-| `visibility` | string | ✗ MAY | "public" | public/private/protected |
-| `calls` | string[] | ✗ MAY | [] | Symbols this calls (qualified names) |
-| `called_by` | string[] | ✗ MAY | [] | Symbols calling this (qualified names) |
+| Field            | Type       | Required   | Default   | Description                               |
+|------------------|------------|------------|-----------|-------------------------------------------|
+| `name`           | string     | ✓ MUST     | -         | Simple symbol name                        |
+| `qualified_name` | string     | ✓ MUST     | -         | Format: `file_path:class.symbol`          |
+| `type`           | string     | ✓ MUST     | -         | Symbol type (fn, class, const, etc.)      |
+| `file`           | string     | ✓ MUST     | -         | Containing file path                      |
+| `lines`          | [int, int] | ✓ MUST     | -         | [start_line, end_line]                    |
+| `signature`      | string     | ⚠ SHOULD   | null      | Function signature if applicable          |
+| `summary`        | string     | ⚠ SHOULD   | null      | Brief description                         |
+| `purpose`        | string     | ⚠ SHOULD   | null      | Symbol purpose from @acp:fn/etc (RFC-001) |
+| `params`         | array      | ✗ MAY      | []        | Parameter descriptions (RFC-001)          |
+| `returns`        | object     | ✗ MAY      | null      | Return value description (RFC-001)        |
+| `throws`         | array      | ✗ MAY      | []        | Exception descriptions (RFC-001)          |
+| `constraints`    | object     | ✗ MAY      | null      | Symbol-level constraints (RFC-001)        |
+| `async`          | boolean    | ✗ MAY      | false     | Whether async                             |
+| `exported`       | boolean    | ✓ MUST     | -         | Whether exported                          |
+| `visibility`     | string     | ✗ MAY      | "public"  | public/private/protected                  |
+| `calls`          | string[]   | ✗ MAY      | []        | Symbols this calls (qualified names)      |
+| `called_by`      | string[]   | ✗ MAY      | []        | Symbols calling this (qualified names)    |
 
 **Symbol Qualification Format:**
 - Format: `{relative_path}:{qualified_symbol}`
@@ -261,6 +288,29 @@ The cache file contains a pre-computed index of the codebase.
   "lines": [45, 89],
   "signature": "(token: string) => Promise<Session | null>",
   "summary": "Validates JWT token and returns session",
+  "purpose": "Validates JWT token and checks session store",
+  "params": [
+    {
+      "name": "token",
+      "description": "JWT token string",
+      "directive": "Ensure token is valid JWT before calling"
+    }
+  ],
+  "returns": {
+    "description": "Session object or null if invalid",
+    "directive": "Handle null case appropriately"
+  },
+  "throws": [
+    {
+      "exception": "TokenExpiredError",
+      "description": "When token is expired",
+      "directive": "Catch and redirect to login"
+    }
+  ],
+  "constraints": {
+    "lock_level": "frozen",
+    "directive": "MUST NOT modify validation logic"
+  },
   "async": true,
   "exported": true,
   "visibility": "public",
@@ -335,13 +385,23 @@ The cache includes metadata to detect when it becomes stale:
 
 #### 3.1.8 ConstraintIndex Structure
 
+<!-- CHANGED: v1.1 - Added RFC-001 fields: directive, auto_generated -->
+
 ```json
 {
   "by_file": {
     "src/auth/session.ts": {
       "lock_level": "restricted",
       "lock_reason": "Security critical",
+      "directive": "Explain proposed changes and wait for approval",
+      "auto_generated": false,
       "style": "google-typescript"
+    },
+    "src/config/production.ts": {
+      "lock_level": "frozen",
+      "lock_reason": "Production configuration",
+      "directive": "MUST NOT modify this file under any circumstances",
+      "auto_generated": false
     }
   },
   "by_lock_level": {
@@ -350,6 +410,16 @@ The cache includes metadata to detect when it becomes stale:
   }
 }
 ```
+
+**Constraint Fields (RFC-001):**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `lock_level` | string | ⚠ SHOULD | null | Lock level constraint |
+| `lock_reason` | string | ⚠ SHOULD | null | Structured reason for lock |
+| `directive` | string | ⚠ SHOULD | null | Self-documenting directive for AI (RFC-001) |
+| `auto_generated` | boolean | ✗ MAY | false | True if directive was auto-generated (RFC-001) |
+| `style` | string | ✗ MAY | null | Style guide constraint |
 
 ### 3.2 Variables File (`.acp.vars.json`)
 
@@ -441,16 +511,62 @@ The config file controls ACP behavior.
 
 **Field Specifications:**
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `version` | string | ✓ MUST | - | SemVer version of ACP spec |
-| `include` | string[] | ⚠ SHOULD | ["**/*"] | Glob patterns to include |
-| `exclude` | string[] | ⚠ SHOULD | [] | Glob patterns to exclude |
-| `error_handling` | object | ✗ MAY | {} | Error handling configuration |
-| `constraints` | object | ✗ MAY | {} | Constraint configuration |
-| `domains` | object | ✗ MAY | {} | Domain pattern definitions |
-| `call_graph` | object | ✗ MAY | {} | Call graph configuration |
-| `limits` | object | ✗ MAY | {} | Implementation limit overrides |
+| Field            | Type     | Required  | Default   | Description                    |
+|------------------|----------|-----------|-----------|--------------------------------|
+| `version`        | string   | ✓ MUST    | -         | SemVer version of ACP spec     |
+| `include`        | string[] | ⚠ SHOULD  | ["**/*"]  | Glob patterns to include       |
+| `exclude`        | string[] | ⚠ SHOULD  | []        | Glob patterns to exclude       |
+| `error_handling` | object   | ✗ MAY     | {}        | Error handling configuration   |
+| `constraints`    | object   | ✗ MAY     | {}        | Constraint configuration       |
+| `domains`        | object   | ✗ MAY     | {}        | Domain pattern definitions     |
+| `call_graph`     | object   | ✗ MAY     | {}        | Call graph configuration       |
+| `limits`         | object   | ✗ MAY     | {}        | Implementation limit overrides |
+
+### 3.4 Attempts File (`.acp/acp.attempts.json`)
+
+The attempts file tracks debugging sessions and troubleshooting history. It provides persistent storage for debugging context across sessions.
+
+See [Chapter 13: Debug Sessions](chapters/13-debug-sessions.md) for full specification.
+
+**Key fields:**
+
+| Field         | Type     | Required  | Description                        |
+|---------------|----------|-----------|-------------------------------------|
+| `version`     | string   | ✓ MUST    | SemVer version of ACP spec         |
+| `updated_at`  | string   | ✓ MUST    | ISO 8601 timestamp of last update  |
+| `attempts`    | object   | ✓ MUST    | Active debugging attempts           |
+| `checkpoints` | object   | ✓ MUST    | Saved restore points               |
+| `history`     | array    | ✓ MUST    | Completed attempt history          |
+
+### 3.5 Sync File (`.acp/acp.sync.json`)
+
+The sync file configures tool synchronization and state sharing between ACP-aware tools.
+
+See [Chapter 11: Tool Integration](chapters/11-tool-integration.md) for full specification.
+
+**Key fields:**
+
+| Field     | Type    | Required  | Description                         |
+|-----------|---------|-----------|--------------------------------------|
+| `version` | string  | ✓ MUST    | SemVer version of sync config       |
+| `enabled` | boolean | ⚠ SHOULD  | Whether sync is active              |
+| `tools`   | object  | ✗ MAY     | Tool-specific configurations        |
+| `primer`  | object  | ✗ MAY     | Primer auto-generation settings     |
+
+### 3.6 Primer File (`.acp.primer.json`)
+
+The primer file provides structured AI context and bootstrapping information. It offers a machine-readable alternative to text-based bootstrap prompts.
+
+See [Chapter 14: Bootstrap & AI Integration](chapters/14-bootstrap.md) for usage patterns.
+
+**Key fields:**
+
+| Field      | Type   | Required  | Description                          |
+|------------|--------|-----------|---------------------------------------|
+| `version`  | string | ✓ MUST    | SemVer version of primer schema      |
+| `metadata` | object | ⚠ SHOULD  | Primer metadata and versioning       |
+| `protocol` | object | ⚠ SHOULD  | ACP protocol awareness sections      |
+| `project`  | object | ✗ MAY     | Project-specific context             |
 
 ---
 
@@ -462,65 +578,103 @@ Annotations embed structured metadata in source code comments.
 
 ```ebnf
 annotation     = "@acp:" namespace [ ":" sub-namespace ] [ " " value ]
+                 " - " directive
 namespace      = identifier
 sub-namespace  = identifier
 identifier     = letter { letter | digit | "-" }
 value          = quoted-string | unquoted-string
 quoted-string  = '"' { any-char-except-quote } '"'
-unquoted-string= { any-char-except-newline }
+unquoted-string= { any-char-except-separator }
+directive      = { any-char-except-newline }
 ```
+
+**RFC-001 Directive Requirement:**
+
+All `@acp:*` annotations MUST include a directive suffix that:
+- Follows the tag and any parameters
+- Is separated by ` - ` (space-dash-space)
+- Contains actionable instructions for the AI agent
+- Is written in imperative mood
 
 ### 4.2 Examples
 
 **JavaScript/TypeScript:**
 ```javascript
 /**
- * @acp:module "Session Management"
- * @acp:summary Handles user session lifecycle
- * @acp:domain authentication
- * @acp:lock restricted
- * @acp:lock-reason "Security critical - requires review"
+ * @acp:module "Session Management" - Core session handling for authentication
+ * @acp:purpose User session lifecycle and JWT validation - Review before modifying auth flow
+ * @acp:domain authentication - Part of authentication domain
+ * @acp:lock restricted - Explain proposed changes and wait for approval
+ * @acp:owner security-team - Contact for questions or significant changes
  */
 ```
 
 **Python:**
 ```python
 """
-@acp:module "Database Layer"
-@acp:summary Provides database abstraction
-@acp:domain data
-@acp:layer repository
+@acp:module "Database Layer" - Core database abstraction layer
+@acp:purpose Provides database abstraction - Ensure queries are optimized
+@acp:domain data - Part of data access domain
+@acp:layer repository - Repository pattern implementation
 """
 ```
 
 **Rust:**
 ```rust
-//! @acp:module "Core Engine"
-//! @acp:summary Main processing engine
-//! @acp:domain processing
+//! @acp:module "Core Engine" - Main processing engine
+//! @acp:purpose Main processing engine - High performance required
+//! @acp:domain processing - Part of processing domain
 ```
 
 ### 4.3 Reserved Namespaces
 
 The following namespaces are reserved:
 
-| Namespace | Purpose | Scope |
-|-----------|---------|-------|
-| `@acp:module` | Module/file metadata | File |
-| `@acp:summary` | Brief description | File or symbol |
-| `@acp:domain` | Domain classification | File or symbol |
-| `@acp:layer` | Architectural layer | File or symbol |
-| `@acp:stability` | Stability indicator | File or symbol |
-| `@acp:lock` | Mutation constraints | File or symbol |
-| `@acp:lock-reason` | Justification for lock | File or symbol |
-| `@acp:style` | Style guide reference | File or symbol |
-| `@acp:style-rules` | Custom style rules | File or symbol |
-| `@acp:behavior` | AI behavior guidance | File or symbol |
-| `@acp:quality` | Quality requirements | File or symbol |
-| `@acp:test` | Testing requirements | Symbol |
-| `@acp:deprecated` | Deprecation notice | Symbol |
-| `@acp:debug` | Debug session tracking | Symbol |
-| `@acp:hack` | Temporary solution marker | Symbol |
+**File-Level Annotations:**
+
+| Namespace          | Purpose                           | Directive Requirement               |
+|--------------------|-----------------------------------|-------------------------------------|
+| `@acp:module`      | Module/file metadata              | SHOULD include purpose description  |
+| `@acp:purpose`     | File/module purpose (RFC-001)     | MUST describe file purpose          |
+| `@acp:summary`     | Brief description                 | SHOULD include context              |
+| `@acp:domain`      | Domain classification             | SHOULD identify domain              |
+| `@acp:layer`       | Architectural layer               | SHOULD describe layer role          |
+| `@acp:stability`   | Stability indicator               | SHOULD explain implications         |
+| `@acp:lock`        | Mutation constraints              | MUST include behavioral instruction |
+| `@acp:lock-reason` | Justification for lock            | SHOULD explain why locked           |
+| `@acp:style`       | Style guide reference             | SHOULD specify guide to follow      |
+| `@acp:style-rules` | Custom style rules                | SHOULD list rules                   |
+| `@acp:behavior`    | AI behavior guidance              | SHOULD describe approach            |
+| `@acp:quality`     | Quality requirements              | SHOULD list requirements            |
+| `@acp:owner`       | Team ownership (RFC-001)          | SHOULD include contact info         |
+| `@acp:ref`         | Reference documentation (RFC-001) | SHOULD describe when to consult     |
+
+**Symbol-Level Annotations:**
+
+| Namespace         | Purpose                            | Directive Requirement          |
+|-------------------|------------------------------------|--------------------------------|
+| `@acp:fn`         | Function description (RFC-001)     | MUST describe function purpose |
+| `@acp:class`      | Class description (RFC-001)        | MUST describe class purpose    |
+| `@acp:method`     | Method description (RFC-001)       | MUST describe method behavior  |
+| `@acp:param`      | Parameter description (RFC-001)    | MUST describe parameter        |
+| `@acp:returns`    | Return value description (RFC-001) | MUST describe return value     |
+| `@acp:throws`     | Exception description (RFC-001)    | MUST describe exception        |
+| `@acp:example`    | Usage example (RFC-001)            | SHOULD include example code    |
+| `@acp:test`       | Testing requirements               | SHOULD describe test needs     |
+| `@acp:deprecated` | Deprecation notice                 | MUST include replacement info  |
+| `@acp:debug`      | Debug session tracking             | SHOULD include session context |
+
+**Inline Annotations:**
+
+| Namespace           | Purpose                        | Directive Requirement         |
+|---------------------|--------------------------------|-------------------------------|
+| `@acp:hack`         | Temporary solution marker      | MUST explain workaround       |
+| `@acp:hack-ticket`  | Issue ticket reference         | SHOULD include ticket ID      |
+| `@acp:hack-expires` | Hack expiration date           | MUST include date             |
+| `@acp:critical`     | Critical code marker (RFC-001) | MUST explain criticality      |
+| `@acp:todo`         | Pending work item (RFC-001)    | MUST describe work needed     |
+| `@acp:fixme`        | Known issue marker (RFC-001)   | MUST describe issue           |
+| `@acp:perf`         | Performance note (RFC-001)     | SHOULD describe consideration |
 
 ### 4.4 Annotation Scoping
 
@@ -576,15 +730,15 @@ This section specifies how to extract annotations from source files.
 
 **By Language:**
 
-| Language | Doc Comment Syntax |
-|----------|-------------------|
-| JavaScript/TypeScript | `/** ... */` (JSDoc style) |
-| Python | `"""..."""` or `'''...'''` (docstrings) or `#` at module level |
-| Rust | `//!` (module-level) or `///` (item-level) |
-| Go | `//` comments immediately preceding declarations |
-| Java/C# | `/** ... */` (Javadoc style) |
-| Ruby | `=begin...=end` or `#` comments |
-| PHP | `/** ... */` (PHPDoc style) |
+| Language              | Doc Comment Syntax                                             |
+|-----------------------|----------------------------------------------------------------|
+| JavaScript/TypeScript | `/** ... */` (JSDoc style)                                     |
+| Python                | `"""..."""` or `'''...'''` (docstrings) or `#` at module level |
+| Rust                  | `//!` (module-level) or `///` (item-level)                     |
+| Go                    | `//` comments immediately preceding declarations               |
+| Java/C#               | `/** ... */` (Javadoc style)                                   |
+| Ruby                  | `=begin...=end` or `#` comments                                |
+| PHP                   | `/** ... */` (PHPDoc style)                                    |
 
 #### 4.6.2 Step 2: Extract Annotation Lines
 
@@ -658,15 +812,15 @@ This means:
 
 **Lock Levels (most to least restrictive):**
 
-| Level | AI Behavior | Use Case |
-|-------|-------------|----------|
-| `frozen` | MUST NOT modify under any circumstances | Production config, security critical |
-| `restricted` | MUST get explicit user approval before any change | Authentication, payment processing |
-| `approval-required` | SHOULD get user approval for significant changes | Core business logic |
-| `tests-required` | MUST add/update tests with changes | Complex logic, regression-prone code |
-| `docs-required` | MUST update documentation with changes | Public APIs, user-facing features |
-| `normal` | No special restrictions (default) | Most code |
-| `experimental` | Encourage aggressive changes | Prototypes, proofs-of-concept |
+| Level               | AI Behavior                                       | Use Case                             |
+|---------------------|---------------------------------------------------|--------------------------------------|
+| `frozen`            | MUST NOT modify under any circumstances           | Production config, security critical |
+| `restricted`        | MUST get explicit user approval before any change | Authentication, payment processing   |
+| `approval-required` | SHOULD get user approval for significant changes  | Core business logic                  |
+| `tests-required`    | MUST add/update tests with changes                | Complex logic, regression-prone code |
+| `docs-required`     | MUST update documentation with changes            | Public APIs, user-facing features    |
+| `normal`            | No special restrictions (default)                 | Most code                            |
+| `experimental`      | Encourage aggressive changes                      | Prototypes, proofs-of-concept        |
 
 **Annotation:**
 ```javascript
@@ -791,11 +945,11 @@ Please review $SYM_VALIDATE...
 
 ### 6.3 Variable Types
 
-| Type | Value Format | Example Definition |
-|------|--------------|-------------------|
+| Type     | Value Format          | Example Definition                                     |
+|----------|-----------------------|--------------------------------------------------------|
 | `symbol` | Qualified symbol name | `"src/auth/session.ts:SessionService.validateSession"` |
-| `file` | File path | `"src/auth/session.ts"` |
-| `domain` | Domain name | `"authentication"` |
+| `file`   | File path             | `"src/auth/session.ts"`                                |
+| `domain` | Domain name           | `"authentication"`                                     |
 
 ### 6.4 Modifiers
 
@@ -803,12 +957,12 @@ Please review $SYM_VALIDATE...
 
 Modifiers control what information is included in variable expansion.
 
-| Modifier | Returns | Example | Use Case |
-|----------|---------|---------|----------|
-| (none) | Summary | `$SYM_VALIDATE` → "validateSession (src/auth/session.ts:45-89) validates JWT tokens" | Quick reference |
-| `.full` | Complete JSON | `$SYM_VALIDATE.full` → entire SymbolEntry object | Detailed analysis |
-| `.ref` | File reference | `$SYM_VALIDATE.ref` → "src/auth/session.ts:45-89" | Source location |
-| `.signature` | Signature only | `$SYM_VALIDATE.signature` → "(token: string) => Promise<Session \| null>" | Type checking |
+| Modifier     | Returns        | Example                                                                              | Use Case          |
+|--------------|----------------|--------------------------------------------------------------------------------------|-------------------|
+| (none)       | Summary        | `$SYM_VALIDATE` → "validateSession (src/auth/session.ts:45-89) validates JWT tokens" | Quick reference   |
+| `.full`      | Complete JSON  | `$SYM_VALIDATE.full` → entire SymbolEntry object                                     | Detailed analysis |
+| `.ref`       | File reference | `$SYM_VALIDATE.ref` → "src/auth/session.ts:45-89"                                    | Source location   |
+| `.signature` | Signature only | `$SYM_VALIDATE.signature` → "(token: string) => Promise<Session \| null>"            | Type checking     |
 
 **Summary Format** (no modifier):
 - Symbol: `{name} ({file}:{lines}) {summary}`
@@ -1010,12 +1164,12 @@ If two constraints at the **same precedence level** conflict:
 
 **Resolution:**
 
-| Element | Effective Lock Level | Reason |
-|---------|---------------------|--------|
-| `src/utils/helper.ts` | `normal` | Project default |
-| `src/auth/token.ts` | `approval-required` | Directory override |
-| `src/auth/session.ts` (file) | `restricted` | File annotation |
-| `src/auth/session.ts::validateSession` | `frozen` | Symbol annotation (most specific) |
+| Element                                | Effective Lock Level   | Reason                            |
+|----------------------------------------|------------------------|-----------------------------------|
+| `src/utils/helper.ts`                  | `normal`               | Project default                   |
+| `src/auth/token.ts`                    | `approval-required`    | Directory override                |
+| `src/auth/session.ts` (file)           | `restricted`           | File annotation                   |
+| `src/auth/session.ts::validateSession` | `frozen`               | Symbol annotation (most specific) |
 
 #### 7.3.2 Example 2: Style Guide Accumulation
 
@@ -1125,13 +1279,13 @@ This section specifies algorithms for cache generation.
 
 **Directory Naming Conventions:**
 
-| Pattern | Layer |
-|---------|-------|
-| `**/handlers/**`, `**/routes/**` | handler |
-| `**/services/**`, `**/business/**` | service |
+| Pattern                            | Layer      |
+|------------------------------------|------------|
+| `**/handlers/**`, `**/routes/**`   | handler    |
+| `**/services/**`, `**/business/**` | service    |
 | `**/repositories/**`, `**/data/**` | repository |
-| `**/models/**`, `**/entities/**` | model |
-| `**/utils/**`, `**/helpers/**` | utility |
+| `**/models/**`, `**/entities/**`   | model      |
+| `**/utils/**`, `**/helpers/**`     | utility    |
 
 #### 8.3.3 Call Graph Construction
 
@@ -1164,28 +1318,28 @@ This section specifies algorithms for cache generation.
 
 Files are classified by extension:
 
-| Extension(s) | Language |
-|--------------|----------|
-| `.ts`, `.tsx` | typescript |
-| `.js`, `.jsx`, `.mjs` | javascript |
-| `.py`, `.pyw` | python |
-| `.rs` | rust |
-| `.go` | go |
-| `.java` | java |
-| `.cs` | c-sharp |
-| `.rb` | ruby |
-| `.php` | php |
-| `.cpp`, `.cc`, `.cxx`, `.hpp` | cpp |
-| `.c`, `.h` | c |
-| `.swift` | swift |
-| `.kt`, `.kts` | kotlin |
+| Extension(s)                  | Language   |
+|-------------------------------|------------|
+| `.ts`, `.tsx`                 | typescript |
+| `.js`, `.jsx`, `.mjs`         | javascript |
+| `.py`, `.pyw`                 | python     |
+| `.rs`                         | rust       |
+| `.go`                         | go         |
+| `.java`                       | java       |
+| `.cs`                         | c-sharp    |
+| `.rb`                         | ruby       |
+| `.php`                        | php        |
+| `.cpp`, `.cc`, `.cxx`, `.hpp` | cpp        |
+| `.c`, `.h`                    | c          |
+| `.swift`                      | swift      |
+| `.kt`, `.kts`                 | kotlin     |
 
 **Ambiguous Extensions:**
 
-| Extension | Check For | If Found | Else |
-|-----------|-----------|----------|------|
-| `.h` | `#include <iostream>` or C++ keywords | cpp | c |
-| `.m` | `@interface`, `@implementation` | objective-c | (error: unknown) |
+| Extension   | Check For                             | If Found    | Else             |
+|-------------|---------------------------------------|-------------|------------------|
+| `.h`        | `#include <iostream>` or C++ keywords | cpp         | c                |
+| `.m`        | `@interface`, `@implementation`       | objective-c | (error: unknown) |
 
 **Unknown Extensions:**
 - Emit warning
@@ -1198,15 +1352,15 @@ Files are classified by extension:
 
 Implementations SHOULD respect these limits:
 
-| Limit | Default | Rationale |
-|-------|---------|-----------|
-| Max source file size | 10 MB | Prevent parser hang, memory issues |
-| Max files in project | 100,000 | Performance, memory |
-| Max annotations per file | 1,000 | Performance |
-| Max symbols per file | 10,000 | Performance, cache size |
-| Max cache file size | 100 MB | Memory, network transfer |
-| Max variable expansion depth | 10 | Circular reference protection |
-| Max inheritance depth | 4 | Complexity management |
+| Limit                        | Default  | Rationale                          |
+|------------------------------|----------|------------------------------------|
+| Max source file size         | 10 MB    | Prevent parser hang, memory issues |
+| Max files in project         | 100,000  | Performance, memory                |
+| Max annotations per file     | 1,000    | Performance                        |
+| Max symbols per file         | 10,000   | Performance, cache size            |
+| Max cache file size          | 100 MB   | Memory, network transfer           |
+| Max variable expansion depth | 10       | Circular reference protection      |
+| Max inheritance depth        | 4        | Complexity management              |
 
 **Configuration:** Limits SHOULD be configurable in `.acp.config.json`:
 ```json
@@ -1340,6 +1494,11 @@ A **Level 2 (Standard)** conformant implementation MUST:
 - Handle errors according to configured strictness (Section 11)
 - Use snake_case for all JSON field names (Section 3)
 
+A Level 2 implementation MAY:
+- Generate `.acp/acp.attempts.json` files (Section 3.4)
+- Parse `.acp/acp.sync.json` files (Section 3.5)
+- Generate `.acp.primer.json` files (Section 3.6)
+
 A Level 2 implementation SHOULD:
 - Detect staleness using git when available (Section 3.1.5)
 - Support configurable strictness modes (Section 11)
@@ -1370,24 +1529,24 @@ A Level 3 implementation SHOULD:
 
 ### 10.3 Feature Matrix
 
-| Feature | Level 1 | Level 2 | Level 3 |
-|---------|---------|---------|---------|
-| Parse cache.json | ✓ MUST | ✓ MUST | ✓ MUST |
-| Read constraints | ✓ MUST | ✓ MUST | ✓ MUST |
-| Expand variables (read) | ✓ MUST | ✓ MUST | ✓ MUST |
-| Basic queries (jq) | ✓ MUST | ✓ MUST | ✓ MUST |
-| Generate cache | ✗ | ✓ MUST | ✓ MUST |
-| Generate variables | ✗ | ✓ MUST | ✓ MUST |
-| Parse config | ✗ | ✓ MUST | ✓ MUST |
-| File discovery | ✗ | ✓ MUST | ✓ MUST |
-| Staleness detection | ✗ | ✓ MUST | ✓ MUST |
-| Constraint inheritance | ✗ | ✓ MUST | ✓ MUST |
-| Error handling | ✗ | ✓ MUST | ✓ MUST |
-| CLI queries | ✗ | ⚠ SHOULD | ✓ MUST |
-| MCP interface | ✗ | ✗ | ✓ MUST |
-| Debug sessions | ✗ | ✗ | ✓ MUST |
-| Watch mode | ✗ | ✗ | ✓ MUST |
-| Conformance tests | ✗ | ✗ | ✓ MUST |
+| Feature                 | Level 1  | Level 2   | Level 3  |
+|-------------------------|----------|-----------|----------|
+| Parse cache.json        | ✓ MUST   | ✓ MUST    | ✓ MUST   |
+| Read constraints        | ✓ MUST   | ✓ MUST    | ✓ MUST   |
+| Expand variables (read) | ✓ MUST   | ✓ MUST    | ✓ MUST   |
+| Basic queries (jq)      | ✓ MUST   | ✓ MUST    | ✓ MUST   |
+| Generate cache          | ✗        | ✓ MUST    | ✓ MUST   |
+| Generate variables      | ✗        | ✓ MUST    | ✓ MUST   |
+| Parse config            | ✗        | ✓ MUST    | ✓ MUST   |
+| File discovery          | ✗        | ✓ MUST    | ✓ MUST   |
+| Staleness detection     | ✗        | ✓ MUST    | ✓ MUST   |
+| Constraint inheritance  | ✗        | ✓ MUST    | ✓ MUST   |
+| Error handling          | ✗        | ✓ MUST    | ✓ MUST   |
+| CLI queries             | ✗        | ⚠ SHOULD  | ✓ MUST   |
+| MCP interface           | ✗        | ✗         | ✓ MUST   |
+| Debug sessions          | ✗        | ✗         | ✓ MUST   |
+| Watch mode              | ✗        | ✗         | ✓ MUST   |
+| Conformance tests       | ✗        | ✗         | ✓ MUST   |
 
 ### 10.4 Conformance Claims
 
@@ -1636,29 +1795,29 @@ interface AcpError {
 
 ### 11.5 Error Codes
 
-| Code | Category | Description |
-|------|----------|-------------|
-| E001-E099 | Syntax | Parsing errors |
-| E001 | Syntax | Invalid annotation syntax |
-| E002 | Syntax | Malformed JSON |
-| E003 | Syntax | Invalid EBNF grammar |
-| E101-E199 | Semantic | Semantic errors |
-| E101 | Semantic | Unknown namespace |
-| E102 | Semantic | Invalid constraint value |
-| E103 | Semantic | Conflicting annotations |
-| E104 | Semantic | Circular variable reference |
-| E105 | Semantic | Undefined variable |
-| E201-E299 | Runtime | Runtime errors |
-| E201 | Runtime | File not found |
-| E202 | Runtime | Permission denied |
-| E203 | Runtime | Disk full |
-| E204 | Runtime | Out of memory |
-| E301-E399 | Resource | Resource limit errors |
-| E301 | Resource | File too large |
-| E302 | Resource | Too many files |
-| E303 | Resource | Cache too large |
-| E304 | Resource | Max depth exceeded |
-| W001-W999 | All | Warnings (non-fatal) |
+| Code      | Category   | Description                 |
+|-----------|------------|-----------------------------|
+| E001-E099 | Syntax     | Parsing errors              |
+| E001      | Syntax     | Invalid annotation syntax   |
+| E002      | Syntax     | Malformed JSON              |
+| E003      | Syntax     | Invalid EBNF grammar        |
+| E101-E199 | Semantic   | Semantic errors             |
+| E101      | Semantic   | Unknown namespace           |
+| E102      | Semantic   | Invalid constraint value    |
+| E103      | Semantic   | Conflicting annotations     |
+| E104      | Semantic   | Circular variable reference |
+| E105      | Semantic   | Undefined variable          |
+| E201-E299 | Runtime    | Runtime errors              |
+| E201      | Runtime    | File not found              |
+| E202      | Runtime    | Permission denied           |
+| E203      | Runtime    | Disk full                   |
+| E204      | Runtime    | Out of memory               |
+| E301-E399 | Resource   | Resource limit errors       |
+| E301      | Resource   | File too large              |
+| E302      | Resource   | Too many files              |
+| E303      | Resource   | Cache too large             |
+| E304      | Resource   | Max depth exceeded          |
+| W001-W999 | All        | Warnings (non-fatal)        |
 
 ### 11.6 Operation-Specific Error Handling
 
@@ -1750,16 +1909,16 @@ Output format:
 
 Implementations MUST use these exit codes:
 
-| Code | Meaning |
-|---------|
-| 0 | Success (no errors) |
-| 1 | General error |
-| 2 | Syntax error |
-| 3 | Semantic error |
-| 4 | Runtime error |
-| 5 | Resource error |
-| 10 | Configuration error |
-| 64 | Usage error (invalid arguments) |
+| Code  | Meaning                         |
+|-------|---------------------------------|
+| 0     | Success (no errors)             |
+| 1     | General error                   |
+| 2     | Syntax error                    |
+| 3     | Semantic error                  |
+| 4     | Runtime error                   |
+| 5     | Resource error                  |
+| 10    | Configuration error             |
+| 64    | Usage error (invalid arguments) |
 
 In permissive mode:
 - Exit 0 if warnings only
@@ -1823,6 +1982,58 @@ Implementations SHOULD:
 
 ---
 
+## 13. Bootstrap & AI Integration
+
+<!-- ADDED: v1.1 - RFC-001 Bootstrap & AI Integration -->
+
+This section provides a summary of AI integration. For complete details, see [Chapter 14: Bootstrap & AI Integration](chapters/14-bootstrap.md).
+
+### 13.1 Minimal Bootstrap Prompt
+
+The minimal bootstrap is sufficient when all annotations include self-documenting directives:
+
+```
+This project uses ACP. @acp:* comments in code are directives for you.
+BEFORE editing: acp constraints <path>
+Explore: acp query symbol|file|domain <name>
+Map: acp map <path>
+Help: acp knowledge "question"
+```
+
+**Token count:** ~40 tokens
+
+### 13.2 Pre-Edit Workflow
+
+AI systems MUST follow this workflow before modifying files:
+
+1. Run `acp constraints <target-file>` before proposing changes
+2. Check the `lock_level` in the response
+3. If `frozen`: REFUSE to modify
+4. If `restricted`: Explain proposed changes and wait for approval
+5. Otherwise: Proceed with context from constraints
+
+### 13.3 Directive Processing
+
+When AI encounters an `@acp:*` annotation:
+
+1. **Parse directive** - Extract text after ` - `
+2. **Identify RFC 2119 keywords** - MUST, SHOULD, MAY
+3. **Apply constraint** - Follow the directive instruction
+4. **Explain to user** - If action blocked, explain why
+
+### 13.4 CLI Commands Reference
+
+| Command                   | Purpose                                       |
+|---------------------------|-----------------------------------------------|
+| `acp constraints <path>`  | Check file constraints before editing         |
+| `acp query file <path>`   | Get file context with symbols and constraints |
+| `acp query symbol <name>` | Get symbol details with callers/callees       |
+| `acp query domain <name>` | Get domain files and relationships            |
+| `acp map <path>`          | Get visual file map with constraints          |
+| `acp knowledge "q"`       | Ask about the codebase                        |
+
+---
+
 ## Appendix A: Complete Annotation Reference
 
 <!-- ADDED: v1 - Complete annotation reference per GAP-C5 -->
@@ -1838,33 +2049,33 @@ All annotations use the `@acp:` prefix followed by a namespace.
 **Scope:** File/module level
 **Purpose:** File metadata
 
-| Annotation | Parameters | Example | Description |
-|------------|-----------|---------|-------------|
-| `@acp:module` | `<name>` | `@acp:module "Auth Service"` | Human-readable module name |
-| `@acp:summary` | `<text>` | `@acp:summary "Handles authentication"` | Brief module description |
-| `@acp:domain` | `<name>` | `@acp:domain authentication` | Domain classification |
-| `@acp:layer` | `<name>` | `@acp:layer service` | Architectural layer |
-| `@acp:stability` | `<level>` | `@acp:stability stable` | Stability indicator (stable, experimental, deprecated) |
+| Annotation       | Parameters   | Example                                 | Description                                            |
+|------------------|--------------|-----------------------------------------|--------------------------------------------------------|
+| `@acp:module`    | `<name>`     | `@acp:module "Auth Service"`            | Human-readable module name                             |
+| `@acp:summary`   | `<text>`     | `@acp:summary "Handles authentication"` | Brief module description                               |
+| `@acp:domain`    | `<name>`     | `@acp:domain authentication`            | Domain classification                                  |
+| `@acp:layer`     | `<name>`     | `@acp:layer service`                    | Architectural layer                                    |
+| `@acp:stability` | `<level>`    | `@acp:stability stable`                 | Stability indicator (stable, experimental, deprecated) |
 
 #### @acp:symbol
 
 **Scope:** Symbol level (function, class, etc.)
 **Purpose:** Symbol metadata
 
-| Annotation | Parameters | Example | Description |
-|------------|-----------|---------|-------------|
-| `@acp:summary` | `<text>` | `@acp:summary "Validates user session"` | Brief symbol description |
-| `@acp:deprecated` | `<message>` | `@acp:deprecated "Use validateToken instead"` | Deprecation notice |
+| Annotation        | Parameters   | Example                                       | Description              |
+|-------------------|--------------|-----------------------------------------------|--------------------------|
+| `@acp:summary`    | `<text>`     | `@acp:summary "Validates user session"`       | Brief symbol description |
+| `@acp:deprecated` | `<message>`  | `@acp:deprecated "Use validateToken instead"` | Deprecation notice       |
 
 #### @acp:lock
 
 **Scope:** File or symbol level
 **Purpose:** Mutation constraints
 
-| Annotation | Parameters | Example | Description |
-|------------|-----------|---------|-------------|
-| `@acp:lock` | `<level>` | `@acp:lock frozen` | Lock level (frozen, restricted, approval-required, tests-required, docs-required, normal, experimental) |
-| `@acp:lock-reason` | `<text>` | `@acp:lock-reason "Security critical"` | Justification for lock level |
+| Annotation         | Parameters   | Example                                | Description                                                                                             |
+|--------------------|--------------|----------------------------------------|---------------------------------------------------------------------------------------------------------|
+| `@acp:lock`        | `<level>`    | `@acp:lock frozen`                     | Lock level (frozen, restricted, approval-required, tests-required, docs-required, normal, experimental) |
+| `@acp:lock-reason` | `<text>`     | `@acp:lock-reason "Security critical"` | Justification for lock level                                                                            |
 
 **Default:** Files and symbols without explicit `@acp:lock` default to `normal`.
 
@@ -1873,18 +2084,18 @@ All annotations use the `@acp:` prefix followed by a namespace.
 **Scope:** File or symbol level
 **Purpose:** Style/format constraints
 
-| Annotation | Parameters | Example | Description |
-|------------|-----------|---------|-------------|
-| `@acp:style` | `<guide>` | `@acp:style google-typescript` | Style guide reference |
-| `@acp:style-rules` | `<rules>` | `@acp:style-rules max-line-length=100, no-any` | Custom style rules (comma-separated) |
+| Annotation         | Parameters   | Example                                        | Description                          |
+|--------------------|--------------|------------------------------------------------|--------------------------------------|
+| `@acp:style`       | `<guide>`    | `@acp:style google-typescript`                 | Style guide reference                |
+| `@acp:style-rules` | `<rules>`    | `@acp:style-rules max-line-length=100, no-any` | Custom style rules (comma-separated) |
 
 #### @acp:behavior
 
 **Scope:** File or symbol level
 **Purpose:** AI behavior guidance
 
-| Annotation | Parameters | Example | Description |
-|------------|-----------|---------|-------------|
+| Annotation      | Parameters   | Example                      | Description                                   |
+|-----------------|--------------|------------------------------|-----------------------------------------------|
 | `@acp:behavior` | `<approach>` | `@acp:behavior conservative` | Approach (conservative, balanced, aggressive) |
 
 #### @acp:quality
@@ -1892,8 +2103,8 @@ All annotations use the `@acp:` prefix followed by a namespace.
 **Scope:** File or symbol level
 **Purpose:** Quality requirements
 
-| Annotation | Parameters | Example | Description |
-|------------|-----------|---------|-------------|
+| Annotation     | Parameters       | Example                                          | Description                            |
+|----------------|------------------|--------------------------------------------------|----------------------------------------|
 | `@acp:quality` | `<requirements>` | `@acp:quality security-review, performance-test` | Quality requirements (comma-separated) |
 
 Common values: `security-review`, `performance-test`, `manual-test`, `regression-test`
@@ -1903,8 +2114,8 @@ Common values: `security-review`, `performance-test`, `manual-test`, `regression
 **Scope:** Symbol level
 **Purpose:** Testing requirements
 
-| Annotation | Parameters | Example | Description |
-|------------|-----------|---------|-------------|
+| Annotation  | Parameters   | Example              | Description         |
+|-------------|--------------|----------------------|---------------------|
 | `@acp:test` | `<coverage>` | `@acp:test required` | Testing requirement |
 
 #### @acp:debug
@@ -1912,22 +2123,168 @@ Common values: `security-review`, `performance-test`, `manual-test`, `regression
 **Scope:** Symbol level
 **Purpose:** Debug session tracking
 
-| Annotation | Parameters | Example | Description |
-|------------|-----------|---------|-------------|
-| `@acp:debug` | `<session>` | `@acp:debug session-2024-12-17` | Debug session identifier |
+| Annotation   | Parameters   | Example                         | Description              |
+|--------------|--------------|---------------------------------|--------------------------|
+| `@acp:debug` | `<session>`  | `@acp:debug session-2024-12-17` | Debug session identifier |
 
 **Note:** Debug feature detailed specification deferred to v1.1
 
 #### @acp:hack
 
-**Scope:** Symbol level
+**Scope:** Inline
 **Purpose:** Temporary solution marker
 
-| Annotation | Parameters | Example | Description |
-|------------|-----------|---------|-------------|
-| `@acp:hack` | `<reason>` | `@acp:hack "Workaround for API bug #123"` | Explanation of temporary solution |
+| Annotation          | Parameters  | Example                                                  | Description               |
+|---------------------|-------------|----------------------------------------------------------|---------------------------|
+| `@acp:hack`         | none        | `@acp:hack - Timezone workaround for server clock drift` | Temporary solution marker |
+| `@acp:hack-ticket`  | `<id>`      | `@acp:hack-ticket JIRA-1234`                             | Related issue ticket      |
+| `@acp:hack-expires` | `<date>`    | `@acp:hack-expires 2025-06-01`                           | Expiration date           |
 
-**Note:** Hack feature detailed specification deferred to v1.1
+### RFC-001 Annotations
+
+<!-- ADDED: v1.1 - RFC-001 Self-Documenting Annotations -->
+
+The following annotations were added in v1.1 per RFC-001.
+
+#### @acp:purpose (RFC-001)
+
+**Scope:** File level
+**Purpose:** File/module purpose description
+**Directive:** MUST describe file purpose
+
+| Annotation     | Parameters      | Example                                                                                  |
+|----------------|-----------------|------------------------------------------------------------------------------------------|
+| `@acp:purpose` | `<description>` | `@acp:purpose Session management and JWT validation - Review before modifying auth flow` |
+
+#### @acp:owner (RFC-001)
+
+**Scope:** File level
+**Purpose:** Team ownership
+**Directive:** SHOULD include contact info
+
+| Annotation   | Parameters   | Example                                                                   |
+|--------------|--------------|---------------------------------------------------------------------------|
+| `@acp:owner` | `<team>`     | `@acp:owner security-team - Contact for questions or significant changes` |
+
+#### @acp:ref (RFC-001)
+
+**Scope:** File level
+**Purpose:** Reference documentation
+**Directive:** SHOULD describe when to consult
+
+| Annotation   | Parameters   | Example                                                                  |
+|--------------|--------------|--------------------------------------------------------------------------|
+| `@acp:ref`   | `<url>`      | `@acp:ref https://docs.example.com/auth - Consult before making changes` |
+
+#### @acp:fn (RFC-001)
+
+**Scope:** Symbol level (function)
+**Purpose:** Function description
+**Directive:** MUST describe function purpose
+
+| Annotation  | Parameters  | Example                                                                  |
+|-------------|-------------|--------------------------------------------------------------------------|
+| `@acp:fn`   | `<name>`    | `@acp:fn validateSession - Validates JWT token and checks session store` |
+
+#### @acp:class (RFC-001)
+
+**Scope:** Symbol level (class)
+**Purpose:** Class description
+**Directive:** MUST describe class purpose
+
+| Annotation   | Parameters   | Example                                                        |
+|--------------|--------------|----------------------------------------------------------------|
+| `@acp:class` | `<name>`     | `@acp:class SessionStore - In-memory session storage with TTL` |
+
+#### @acp:method (RFC-001)
+
+**Scope:** Symbol level (method)
+**Purpose:** Method description
+**Directive:** MUST describe method behavior
+
+| Annotation    | Parameters  | Example                                                              |
+|---------------|-------------|----------------------------------------------------------------------|
+| `@acp:method` | `<name>`    | `@acp:method get - Retrieves session by ID, returns null if expired` |
+
+#### @acp:param (RFC-001)
+
+**Scope:** Symbol level
+**Purpose:** Parameter description
+**Directive:** MUST describe parameter
+
+| Annotation   | Parameters   | Example                                        |
+|--------------|--------------|------------------------------------------------|
+| `@acp:param` | `<name>`     | `@acp:param token - The expired but valid JWT` |
+
+#### @acp:returns (RFC-001)
+
+**Scope:** Symbol level
+**Purpose:** Return value description
+**Directive:** MUST describe return value
+
+| Annotation     | Parameters  | Example                                                 |
+|----------------|-------------|---------------------------------------------------------|
+| `@acp:returns` | none        | `@acp:returns New JWT string or null if refresh denied` |
+
+#### @acp:throws (RFC-001)
+
+**Scope:** Symbol level
+**Purpose:** Exception description
+**Directive:** MUST describe exception
+
+| Annotation    | Parameters  | Example                                                  |
+|---------------|-------------|----------------------------------------------------------|
+| `@acp:throws` | `<type>`    | `@acp:throws TokenExpiredError - When token has expired` |
+
+#### @acp:example (RFC-001)
+
+**Scope:** Symbol level
+**Purpose:** Usage example
+**Directive:** SHOULD include example code
+
+| Annotation     | Parameters  | Example                                               |
+|----------------|-------------|-------------------------------------------------------|
+| `@acp:example` | none        | `@acp:example const session = validateSession(token)` |
+
+#### @acp:critical (RFC-001)
+
+**Scope:** Inline
+**Purpose:** Critical code marker
+**Directive:** MUST explain criticality
+
+| Annotation      | Parameters  | Example                                                 |
+|-----------------|-------------|---------------------------------------------------------|
+| `@acp:critical` | none        | `@acp:critical - Token expiry check, security boundary` |
+
+#### @acp:todo (RFC-001)
+
+**Scope:** Inline
+**Purpose:** Pending work item
+**Directive:** MUST describe work needed
+
+| Annotation  | Parameters  | Example                                     |
+|-------------|-------------|---------------------------------------------|
+| `@acp:todo` | none        | `@acp:todo - Add rate limiting per session` |
+
+#### @acp:fixme (RFC-001)
+
+**Scope:** Inline
+**Purpose:** Known issue marker
+**Directive:** MUST describe issue
+
+| Annotation   | Parameters   | Example                                            |
+|--------------|--------------|----------------------------------------------------|
+| `@acp:fixme` | none         | `@acp:fixme - Race condition in concurrent access` |
+
+#### @acp:perf (RFC-001)
+
+**Scope:** Inline
+**Purpose:** Performance note
+**Directive:** SHOULD describe consideration
+
+| Annotation  | Parameters  | Example                                                                  |
+|-------------|-------------|--------------------------------------------------------------------------|
+| `@acp:perf` | none        | `@acp:perf - O(n²) complexity, consider optimization for large datasets` |
 
 ### Extension Annotations
 
@@ -1947,9 +2304,10 @@ See Section 4.5 for extension rules.
 ### Future Reserved
 
 The following namespaces are reserved for future use:
-- `@acp:perf` - Performance annotations
 - `@acp:security` - Security annotations
 - `@acp:access` - Access control annotations
+
+**Note:** `@acp:perf` was reserved in v1.0 and implemented in v1.1 (RFC-001).
 
 ---
 
@@ -2047,6 +2405,8 @@ Official schemas are hosted at:
         "path": {"type": "string"},
         "module": {"type": ["string", "null"]},
         "summary": {"type": ["string", "null"]},
+        "purpose": {"type": ["string", "null"], "description": "RFC-001: File purpose from @acp:purpose"},
+        "owner": {"type": ["string", "null"], "description": "RFC-001: Team ownership from @acp:owner"},
         "lines": {"type": "integer", "minimum": 0},
         "language": {"type": "string"},
         "domains": {"type": "array", "items": {"type": "string"}},
@@ -2056,7 +2416,25 @@ Official schemas are hosted at:
           "enum": ["stable", "experimental", "deprecated", null]
         },
         "exports": {"type": "array", "items": {"type": "string"}},
-        "imports": {"type": "array", "items": {"type": "string"}}
+        "imports": {"type": "array", "items": {"type": "string"}},
+        "inline": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/InlineAnnotation"},
+          "description": "RFC-001: Inline annotations"
+        }
+      }
+    },
+    "InlineAnnotation": {
+      "type": "object",
+      "required": ["type", "line", "directive"],
+      "properties": {
+        "type": {"type": "string", "enum": ["critical", "todo", "fixme", "perf", "hack"]},
+        "value": {"type": "string"},
+        "line": {"type": "integer", "minimum": 1},
+        "directive": {"type": "string", "description": "RFC-001: Self-documenting directive"},
+        "ticket": {"type": "string"},
+        "expires": {"type": "string", "format": "date"},
+        "auto_generated": {"type": "boolean", "default": false}
       }
     },
     "SymbolEntry": {
@@ -2075,11 +2453,61 @@ Official schemas are hosted at:
         },
         "signature": {"type": ["string", "null"]},
         "summary": {"type": ["string", "null"]},
+        "purpose": {"type": ["string", "null"], "description": "RFC-001: Symbol purpose from @acp:fn/etc"},
+        "params": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/ParamEntry"},
+          "description": "RFC-001: Parameter descriptions"
+        },
+        "returns": {"$ref": "#/definitions/ReturnsEntry", "description": "RFC-001: Return value description"},
+        "throws": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/ThrowsEntry"},
+          "description": "RFC-001: Exception descriptions"
+        },
+        "constraints": {"$ref": "#/definitions/SymbolConstraints", "description": "RFC-001: Symbol-level constraints"},
         "async": {"type": "boolean"},
         "exported": {"type": "boolean"},
         "visibility": {"type": "string", "enum": ["public", "private", "protected"]},
         "calls": {"type": "array", "items": {"type": "string"}},
         "called_by": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "ParamEntry": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "directive": {"type": "string", "description": "RFC-001: Directive for parameter usage"}
+      }
+    },
+    "ReturnsEntry": {
+      "type": "object",
+      "properties": {
+        "description": {"type": "string"},
+        "directive": {"type": "string", "description": "RFC-001: Directive for handling return value"}
+      }
+    },
+    "ThrowsEntry": {
+      "type": "object",
+      "required": ["exception"],
+      "properties": {
+        "exception": {"type": "string"},
+        "description": {"type": "string"},
+        "directive": {"type": "string", "description": "RFC-001: How to handle the exception"}
+      }
+    },
+    "SymbolConstraints": {
+      "type": "object",
+      "properties": {
+        "lock_level": {
+          "type": "string",
+          "enum": ["frozen", "restricted", "approval-required", "tests-required", "docs-required", "review-required", "normal", "experimental"]
+        },
+        "lock_reason": {"type": "string"},
+        "directive": {"type": "string", "description": "RFC-001: Self-documenting directive"},
+        "auto_generated": {"type": "boolean", "default": false}
       }
     },
     "CallGraph": {
@@ -2120,6 +2548,8 @@ Official schemas are hosted at:
               "properties": {
                 "lock_level": {"type": "string"},
                 "lock_reason": {"type": "string"},
+                "directive": {"type": "string", "description": "RFC-001: Self-documenting directive"},
+                "auto_generated": {"type": "boolean", "default": false, "description": "RFC-001: True if auto-generated"},
                 "style": {"type": "string"}
               }
             }
@@ -2312,7 +2742,39 @@ See documentation for current list and contribution guidelines.
 
 ## Changelog
 
-### 1.0.0-revised (2024-12-17)
+### 1.2.0 (2025-12-21) - Complete File Format Documentation
+
+#### Added
+- **Section 3.4**: Attempts File (`.acp/acp.attempts.json`) with key field documentation
+- **Section 3.5**: Sync File (`.acp/acp.sync.json`) with key field documentation
+- **Section 3.6**: Primer File (`.acp.primer.json`) with key field documentation
+- Cross-references from Chapter 13 to Section 3.4 for attempts file
+- Cross-references from Chapter 14 to Section 3.6 for primer file
+
+#### Changed
+- Updated Section 3 file count from "three" to "six" JSON files
+- Expanded file format table with all schema-backed files
+- Added Level 2 implementation notes for new file support
+
+### 1.1.0 (2025-12-21) - RFC-001 Compliance
+
+#### Added
+- **Directive suffix requirement** for all annotations (` - <directive>`) per RFC-001
+- **New file-level annotations**: `@acp:purpose`, `@acp:owner`, `@acp:ref`
+- **New symbol-level annotations**: `@acp:fn`, `@acp:class`, `@acp:method`, `@acp:param`, `@acp:returns`, `@acp:throws`, `@acp:example`
+- **New inline annotations**: `@acp:critical`, `@acp:todo`, `@acp:fixme`, `@acp:perf`
+- **FileEntry fields**: `purpose`, `owner`, `inline` array
+- **SymbolEntry fields**: `purpose`, `params`, `returns`, `throws`, `constraints`
+- **ConstraintIndex fields**: `directive`, `auto_generated`
+- **Chapter 14**: Bootstrap & AI Integration (see `spec/chapters/14-bootstrap.md`)
+
+#### Changed
+- EBNF grammar to include directive suffix
+- All annotation examples updated with directive suffixes
+- Reserved namespaces table reorganized by annotation level (file/symbol/inline)
+- JSON Schema updated for all new fields
+
+### 1.0.0-revised (2025-12-17)
 
 #### Added
 - Section 10: Conformance Levels (3-tier structure: Reader/Standard/Full)
@@ -2371,7 +2833,7 @@ See documentation for current list and contribution guidelines.
 - Debug/Hack feature detailed specifications (GAP-M20)
 - Comprehensive complex examples (GAP-M21)
 
-### 1.0.0-draft (2024-12-15)
+### 1.0.0-draft (2025-12-15)
 
 Initial draft specification release.
 

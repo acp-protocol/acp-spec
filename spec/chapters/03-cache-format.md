@@ -1,9 +1,9 @@
 # Cache File Format Specification
 
-**ACP Version**: 1.0.0-revised
-**Document Version**: 1.0.0
-**Last Updated**: 2024-12-17
-**Status**: Revised Draft
+**ACP Version**: 1.0.0
+**Document Version**: 1.1.0
+**Last Updated**: 2025-12-21
+**Status**: RFC-001 Compliant
 
 ---
 
@@ -12,11 +12,11 @@
 1. [Overview](#1-overview)
 2. [File Format](#2-file-format)
 3. [Root Structure](#3-root-structure)
-4. [File Entries](#4-file-entries)
-5. [Symbol Entries](#5-symbol-entries)
+4. [File Entries](#4-file-entries) - Updated with `purpose`, `owner`, `inline`
+5. [Symbol Entries](#5-symbol-entries) - Updated with `purpose`, `params`, `returns`, `throws`, `constraints`
 6. [Call Graph](#6-call-graph)
 7. [Domain Index](#7-domain-index)
-8. [Constraint Index](#8-constraint-index)
+8. [Constraint Index](#8-constraint-index) - Updated with `directive`, `auto_generated`
 9. [Generation](#9-generation)
 10. [Validation](#10-validation)
 
@@ -28,11 +28,12 @@
 
 The cache file (`.acp.cache.json`) is the indexed representation of a codebase. It provides AI systems with structured access to:
 
-- File and module metadata
-- Symbol definitions and relationships
+- File and module metadata with purpose descriptions
+- Symbol definitions with directives and relationships
 - Call graphs and dependencies
 - Domain classifications
-- Constraint and guardrail information
+- Constraint and guardrail information with directives
+- Inline annotations for tracking items (todo, fixme, critical)
 
 The cache enables token-efficient AI interactions by pre-computing codebase structure rather than analyzing files on every request.
 
@@ -91,18 +92,21 @@ The cache file MUST conform to the JSON Schema at:
 ```json
 {
   "version": "1.0.0",
-  "generated_at": "2024-12-17T15:30:00Z",
+  "generated_at": "2025-12-21T15:30:00Z",
   "git_commit": "abc123def456",
   "project": { },
   "stats": { },
   "source_files": { },
   "files": { },
   "symbols": { },
+  "annotations": { },
   "graph": { },
   "domains": { },
   "constraints": { }
 }
 ```
+
+**Note:** The `annotations` section is new in RFC-001 and stores all annotations with their directives.
 
 ### 3.2 Field Definitions
 
@@ -220,8 +224,10 @@ The `files` object maps relative file paths to file entry objects.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `path` | string | ✓ MUST | - | Relative path from project root |
+| `purpose` | string | ⚠ SHOULD | null | File purpose (from `@acp:purpose`) - RFC-001 |
 | `module` | string | ⚠ SHOULD | null | Human-readable module name (from `@acp:module`) |
-| `summary` | string | ⚠ SHOULD | null | Brief file description (from `@acp:summary`) |
+| `summary` | string | ✗ MAY | null | Brief file description (legacy, use `purpose`) |
+| `owner` | string | ✗ MAY | null | Team ownership (from `@acp:owner`) - RFC-001 |
 | `lines` | integer | ✓ MUST | - | Line count |
 | `language` | string | ✓ MUST | - | Programming language |
 | `domains` | array[string] | ✗ MAY | [] | Domain classifications (from `@acp:domain`) |
@@ -229,6 +235,46 @@ The `files` object maps relative file paths to file entry objects.
 | `stability` | string | ✗ MAY | null | Stability level: `stable`, `experimental`, `deprecated` |
 | `exports` | array[string] | ⚠ SHOULD | [] | Exported symbols (qualified names) |
 | `imports` | array[string] | ⚠ SHOULD | [] | Imported modules |
+| `inline` | array[object] | ✗ MAY | [] | Inline annotations in file - RFC-001 |
+
+#### `inline` Array (RFC-001)
+
+The `inline` array stores inline annotations (`@acp:critical`, `@acp:todo`, `@acp:fixme`, `@acp:perf`):
+
+```json
+{
+  "inline": [
+    {
+      "type": "critical",
+      "line": 45,
+      "directive": "Review with extreme care; errors here have severe consequences"
+    },
+    {
+      "type": "todo",
+      "value": "Add rate limiting",
+      "line": 78,
+      "directive": "This work is pending; consider completing before related changes",
+      "ticket": "JIRA-123"
+    },
+    {
+      "type": "fixme",
+      "value": "Race condition",
+      "line": 102,
+      "directive": "Known issue that needs resolution; avoid relying on current behavior"
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Annotation type: `critical`, `todo`, `fixme`, `perf`, `hack` |
+| `value` | string | No | Annotation value (e.g., task description) |
+| `line` | integer | Yes | Line number |
+| `directive` | string | Yes | Self-documenting directive text |
+| `ticket` | string | No | Related issue/ticket reference |
+| `expires` | string | No | Expiration date (ISO 8601) for hacks |
+| `auto_generated` | boolean | No | True if directive was auto-generated |
 
 ### 4.3 Language Detection
 
@@ -333,12 +379,47 @@ The `symbols` object maps qualified symbol names to symbol entry objects.
 | `file` | string | ✓ MUST | - | Containing file path |
 | `lines` | [int, int] | ✓ MUST | - | [start_line, end_line] |
 | `signature` | string | ⚠ SHOULD | null | Function signature if applicable |
-| `summary` | string | ⚠ SHOULD | null | Brief description (from `@acp:summary`) |
+| `purpose` | string | ⚠ SHOULD | null | Symbol purpose (from `@acp:fn`, `@acp:class`, etc.) - RFC-001 |
+| `summary` | string | ✗ MAY | null | Brief description (legacy, use `purpose`) |
+| `params` | array[object] | ✗ MAY | [] | Parameter descriptions - RFC-001 |
+| `returns` | object | ✗ MAY | null | Return value description - RFC-001 |
+| `throws` | array[object] | ✗ MAY | [] | Exception descriptions - RFC-001 |
 | `async` | boolean | ✗ MAY | false | Whether async |
 | `exported` | boolean | ✓ MUST | - | Whether exported |
 | `visibility` | string | ✗ MAY | "public" | `public`, `private`, `protected` |
 | `calls` | array[string] | ✗ MAY | [] | Symbols this calls (qualified names) |
 | `called_by` | array[string] | ✗ MAY | [] | Symbols calling this (qualified names) |
+| `constraints` | object | ✗ MAY | null | Symbol-level constraints with directives - RFC-001 |
+
+#### Symbol Documentation Fields (RFC-001)
+
+```json
+{
+  "params": [
+    {
+      "name": "token",
+      "description": "JWT token string",
+      "directive": "Ensure token is a valid JWT string before calling"
+    }
+  ],
+  "returns": {
+    "description": "Session object or null if invalid",
+    "directive": "Handle null case appropriately in calling code"
+  },
+  "throws": [
+    {
+      "exception": "AuthError",
+      "description": "When token is malformed",
+      "directive": "Handle AuthError appropriately when calling"
+    }
+  ],
+  "constraints": {
+    "lock_level": "frozen",
+    "lock_reason": "Core authentication logic",
+    "directive": "MUST NOT modify this function under any circumstances"
+  }
+}
+```
 
 ### 5.3 Symbol Types
 
@@ -540,7 +621,7 @@ The `constraints` object indexes all constraints for efficient lookup.
 | `by_file` | object | Map of file path → constraints |
 | `by_lock_level` | object | Map of lock level → file paths |
 
-### 8.3 Example Constraint Entry
+### 8.3 Example Constraint Entry (RFC-001 Compliant)
 
 ```json
 {
@@ -548,13 +629,29 @@ The `constraints` object indexes all constraints for efficient lookup.
     "src/auth/session.ts": {
       "lock_level": "restricted",
       "lock_reason": "Security-critical code",
+      "directive": "Explain proposed changes and wait for explicit approval before modifying",
       "style": "google-typescript",
       "behavior": "conservative",
-      "quality": ["security-review", "tests-required"]
+      "quality": ["security-review", "tests-required"],
+      "auto_generated": false
     }
   }
 }
 ```
+
+### 8.4 Constraint Field Definitions (RFC-001)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `lock_level` | string | No | Lock level: `frozen`, `restricted`, `approval-required`, etc. |
+| `lock_reason` | string | No | Structured reason for lock (grepable) |
+| `directive` | string | Yes* | Self-documenting directive for AI (*required for constraints) |
+| `style` | string | No | Style guide reference |
+| `behavior` | string | No | AI behavior guidance |
+| `quality` | array[string] | No | Quality requirements |
+| `auto_generated` | boolean | No | True if directive was auto-generated from defaults |
+
+**Note:** The `directive` field is REQUIRED for all constraints per RFC-001. The `lock_reason` provides a structured, grepable value while `directive` provides human/AI-readable instructions.
 
 See [Constraint System Specification](constraints.md) for detailed constraint definitions.
 

@@ -144,6 +144,121 @@
     }
   },
   "$defs": {
+    "inline_annotation": {
+      "type": "object",
+      "description": "Inline annotation entry (RFC-001)",
+      "required": ["type", "line", "directive"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["critical", "todo", "fixme", "perf", "hack"],
+          "description": "Inline annotation type"
+        },
+        "value": {
+          "type": "string",
+          "description": "Annotation value (task description, issue, etc.)"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number"
+        },
+        "directive": {
+          "type": "string",
+          "description": "Self-documenting directive for AI (RFC-001)"
+        },
+        "ticket": {
+          "type": "string",
+          "description": "Related issue/ticket reference"
+        },
+        "expires": {
+          "type": "string",
+          "format": "date",
+          "description": "Expiration date for hacks"
+        },
+        "auto_generated": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if directive was auto-generated (RFC-001)"
+        }
+      }
+    },
+    "param_entry": {
+      "type": "object",
+      "description": "Parameter documentation entry (RFC-001)",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Parameter name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Parameter description"
+        },
+        "directive": {
+          "type": "string",
+          "description": "Directive for parameter usage (RFC-001)"
+        }
+      }
+    },
+    "returns_entry": {
+      "type": "object",
+      "description": "Return value documentation entry (RFC-001)",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Return value description"
+        },
+        "directive": {
+          "type": "string",
+          "description": "Directive for handling return value (RFC-001)"
+        }
+      }
+    },
+    "throws_entry": {
+      "type": "object",
+      "description": "Exception documentation entry (RFC-001)",
+      "required": ["exception"],
+      "properties": {
+        "exception": {
+          "type": "string",
+          "description": "Exception type"
+        },
+        "description": {
+          "type": "string",
+          "description": "When exception is thrown"
+        },
+        "directive": {
+          "type": "string",
+          "description": "How to handle the exception (RFC-001)"
+        }
+      }
+    },
+    "symbol_constraints": {
+      "type": "object",
+      "description": "Symbol-level constraints (RFC-001)",
+      "properties": {
+        "lock_level": {
+          "type": "string",
+          "enum": ["frozen", "restricted", "approval-required", "tests-required", "docs-required", "review-required", "normal", "experimental"],
+          "description": "Lock level constraint"
+        },
+        "lock_reason": {
+          "type": "string",
+          "description": "Structured reason for lock"
+        },
+        "directive": {
+          "type": "string",
+          "description": "Self-documenting directive for AI (RFC-001)"
+        },
+        "auto_generated": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if directive was auto-generated (RFC-001)"
+        }
+      }
+    },
     "file_entry": {
       "type": "object",
       "required": ["path", "lines", "language", "exports", "imports"],
@@ -159,6 +274,22 @@
         "summary": {
           "type": ["string", "null"],
           "description": "Brief file description (from @acp:summary)"
+        },
+        "purpose": {
+          "type": ["string", "null"],
+          "description": "File purpose from @acp:purpose (RFC-001)"
+        },
+        "owner": {
+          "type": ["string", "null"],
+          "description": "Team ownership from @acp:owner (RFC-001)"
+        },
+        "inline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inline_annotation"
+          },
+          "default": [],
+          "description": "Inline annotations (RFC-001)"
         },
         "lines": {
           "type": "integer",
@@ -255,6 +386,34 @@
           "type": ["string", "null"],
           "description": "Brief description (from @acp:summary)"
         },
+        "purpose": {
+          "type": ["string", "null"],
+          "description": "Symbol purpose from @acp:fn/@acp:class/etc (RFC-001)"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/param_entry"
+          },
+          "default": [],
+          "description": "Parameter descriptions (RFC-001)"
+        },
+        "returns": {
+          "$ref": "#/$defs/returns_entry",
+          "description": "Return value description (RFC-001)"
+        },
+        "throws": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/throws_entry"
+          },
+          "default": [],
+          "description": "Exception descriptions (RFC-001)"
+        },
+        "constraints": {
+          "$ref": "#/$defs/symbol_constraints",
+          "description": "Symbol-level constraints (RFC-001)"
+        },
         "async": {
           "type": "boolean",
           "default": false,
@@ -331,6 +490,15 @@
         "lock_reason": {
           "type": "string",
           "description": "Reason for lock level"
+        },
+        "directive": {
+          "type": "string",
+          "description": "Self-documenting directive for AI (RFC-001)"
+        },
+        "auto_generated": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if directive was auto-generated from defaults (RFC-001)"
         },
         "style": {
           "type": "string",

@@ -216,7 +216,13 @@ impl NamingHeuristics {
             _ => return None,
         };
 
-        Some(summary)
+        // Validate the generated summary
+        if validate_summary(&summary) {
+            Some(summary)
+        } else {
+            // Fallback to simple format
+            Some(format!("{} {}", capitalize(&name.to_lowercase()), kind_to_string(kind)))
+        }
     }
 
     /// @acp:summary "Checks if name matches security patterns"
@@ -237,6 +243,60 @@ impl NamingHeuristics {
 impl Default for NamingHeuristics {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// @acp:summary "Validates a generated summary for quality"
+///
+/// Checks for common issues like double pluralization, double spaces, etc.
+fn validate_summary(summary: &str) -> bool {
+    // Minimum length check
+    if summary.len() < 5 {
+        return false;
+    }
+
+    // Check for common issues
+    let problems = [
+        "eses ",  // Double pluralization like "Featureses"
+        "sses ",  // Double pluralization
+        "  ",     // Double spaces
+    ];
+
+    for problem in &problems {
+        if summary.contains(problem) {
+            return false;
+        }
+    }
+
+    // Check for words ending in "eses" (double plural)
+    for word in summary.split_whitespace() {
+        if word.ends_with("eses") || word.ends_with("sses") {
+            return false;
+        }
+    }
+
+    true
+}
+
+/// @acp:summary "Converts symbol kind to readable string"
+fn kind_to_string(kind: Option<SymbolKind>) -> &'static str {
+    match kind {
+        Some(SymbolKind::Function) => "function",
+        Some(SymbolKind::Method) => "method",
+        Some(SymbolKind::Class) => "class",
+        Some(SymbolKind::Struct) => "struct",
+        Some(SymbolKind::Interface) => "interface",
+        Some(SymbolKind::Trait) => "trait",
+        Some(SymbolKind::Enum) => "enum",
+        Some(SymbolKind::EnumVariant) => "variant",
+        Some(SymbolKind::Constant) => "constant",
+        Some(SymbolKind::Variable) => "variable",
+        Some(SymbolKind::Property) => "property",
+        Some(SymbolKind::Field) => "field",
+        Some(SymbolKind::TypeAlias) => "type",
+        Some(SymbolKind::Module) => "module",
+        Some(SymbolKind::Namespace) => "namespace",
+        None | Some(_) => "symbol",
     }
 }
 
@@ -538,18 +598,36 @@ fn to_third_person(verb: &str) -> String {
         "exists" => "Checks if exists".to_string(),
 
         _ => {
-            // Default: add 's' or 'es'
-            if lower.ends_with('s')
-                || lower.ends_with('x')
+            // Default: add 's' or 'es' with proper capitalization
+            let result = if lower.ends_with('x')
                 || lower.ends_with("ch")
                 || lower.ends_with("sh")
             {
+                // Words ending in x, ch, sh → add 'es'
                 format!("{}es", lower)
+            } else if lower.ends_with('s') {
+                // Words already ending in 's' - check if it looks like a verb
+                // For words like "process" → "processes", but avoid double-s for already plural words
+                if lower.ends_with("ss") || lower.ends_with("us") || lower.ends_with("is") {
+                    format!("{}es", lower)
+                } else {
+                    // Likely already third person or noun-like, just capitalize
+                    capitalize(&lower)
+                }
             } else if lower.ends_with('y') && lower.len() > 1 {
-                format!("{}ies", &lower[..lower.len() - 1])
+                // Check for vowel + y pattern (display, play, etc.) → just add 's'
+                let chars: Vec<char> = lower.chars().collect();
+                let second_last = chars.get(chars.len() - 2);
+                if matches!(second_last, Some('a') | Some('e') | Some('i') | Some('o') | Some('u')) {
+                    format!("{}s", lower)
+                } else {
+                    // Consonant + y → change y to ies
+                    format!("{}ies", &lower[..lower.len() - 1])
+                }
             } else {
                 format!("{}s", lower)
-            }
+            };
+            capitalize(&result)
         }
     }
 }

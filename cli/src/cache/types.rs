@@ -290,7 +290,7 @@ pub struct Stats {
     pub annotation_coverage: f64,
 }
 
-/// @acp:summary "File entry with metadata (schema-compliant)"
+/// @acp:summary "File entry with metadata (RFC-001 compliant)"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileEntry {
     /// Relative path from project root (required)
@@ -311,6 +311,15 @@ pub struct FileEntry {
     /// Brief file description (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// RFC-001: File purpose from @acp:purpose annotation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub purpose: Option<String>,
+    /// RFC-001: File owner from @acp:owner annotation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
+    /// RFC-001: Inline annotations (hack, todo, fixme, critical, perf)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub inline: Vec<InlineAnnotation>,
     /// Domain classifications (optional)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub domains: Vec<String>,
@@ -328,7 +337,31 @@ pub struct FileEntry {
     pub git: Option<GitFileInfo>,
 }
 
-/// @acp:summary "Symbol entry with metadata (schema-compliant)"
+/// @acp:summary "RFC-001: Inline annotation (hack, todo, fixme, critical, perf)"
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InlineAnnotation {
+    /// Line number (1-indexed)
+    pub line: usize,
+    /// Annotation type (hack, todo, fixme, critical, perf)
+    #[serde(rename = "type")]
+    pub annotation_type: String,
+    /// Annotation value/description
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    /// RFC-001: Self-documenting directive
+    pub directive: String,
+    /// Expiry date for hacks (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires: Option<String>,
+    /// Related ticket/issue (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ticket: Option<String>,
+    /// Whether directive was auto-generated
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub auto_generated: bool,
+}
+
+/// @acp:summary "Symbol entry with metadata (RFC-001 compliant)"
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SymbolEntry {
     /// Simple symbol name (required)
@@ -350,6 +383,12 @@ pub struct SymbolEntry {
     /// Brief description (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// RFC-001: Symbol purpose from @acp:fn/@acp:class/@acp:method directive
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub purpose: Option<String>,
+    /// RFC-001: Symbol-level constraints
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub constraints: Option<SymbolConstraint>,
     /// Whether async (optional, default false)
     #[serde(rename = "async", default, skip_serializing_if = "is_false")]
     pub async_fn: bool,
@@ -365,6 +404,18 @@ pub struct SymbolEntry {
     /// Git metadata (optional - last commit, author, code age)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub git: Option<GitSymbolInfo>,
+}
+
+/// @acp:summary "RFC-001: Symbol-level constraint"
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymbolConstraint {
+    /// Lock level for this symbol
+    pub level: String,
+    /// Self-documenting directive
+    pub directive: String,
+    /// Whether directive was auto-generated
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub auto_generated: bool,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -472,6 +523,8 @@ mod tests {
                 exported: true,
                 signature: None,
                 summary: Some("Test function".to_string()),
+                purpose: None,
+                constraints: None,
                 async_fn: false,
                 visibility: Visibility::Public,
                 calls: vec![],
@@ -561,6 +614,9 @@ mod tests {
             imports: vec![],
             module: None,
             summary: None,
+            purpose: None,
+            owner: None,
+            inline: vec![],
             domains: vec![],
             layer: None,
             stability: None,
@@ -627,6 +683,9 @@ mod tests {
             imports: vec![],
             module: None,
             summary: None,
+            purpose: None,
+            owner: None,
+            inline: vec![],
             domains: vec![],
             layer: None,
             stability: None,

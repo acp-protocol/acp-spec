@@ -7,6 +7,7 @@ use console::style;
 
 use acp::{Config, Indexer, Cache, Query};
 use acp::vars::{VarsFile, VarResolver, VarExpander, ExpansionMode};
+use acp::commands::{execute_map, execute_migrate, MapOptions, MapFormat, MigrateOptions};
 
 #[derive(Parser)]
 #[command(name = "acp")]
@@ -93,6 +94,10 @@ enum Commands {
         /// Cache file to query
         #[arg(short, long, default_value = ".acp/acp.cache.json")]
         cache: PathBuf,
+
+        /// Output as JSON (default: human-readable)
+        #[arg(long)]
+        json: bool,
     },
 
     /// Expand variable references in text
@@ -167,6 +172,12 @@ enum Commands {
         file: PathBuf,
     },
 
+    /// Manage the ACP daemon
+    Daemon {
+        #[command(subcommand)]
+        cmd: DaemonCommands,
+    },
+
     /// Generate ACP annotations from code analysis and documentation conversion
     Annotate {
         /// Path to analyze (file or directory)
@@ -217,6 +228,64 @@ enum Commands {
         #[arg(long, short = 'j')]
         workers: Option<usize>,
     },
+
+    /// Map directory structure with annotations (RFC-001)
+    Map {
+        /// Path to map (file or directory)
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Maximum directory depth
+        #[arg(long, default_value = "3")]
+        depth: usize,
+
+        /// Show inline annotations (hacks, todos)
+        #[arg(long)]
+        inline: bool,
+
+        /// Output format (tree, flat, json)
+        #[arg(long, value_enum, default_value = "tree")]
+        format: MapFormatArg,
+
+        /// Cache file
+        #[arg(short, long, default_value = ".acp/acp.cache.json")]
+        cache: PathBuf,
+    },
+
+    /// Migrate annotations to RFC-001 format
+    Migrate {
+        /// Add directive suffixes to annotations
+        #[arg(long)]
+        add_directives: bool,
+
+        /// Paths to migrate (default: all indexed files)
+        paths: Vec<PathBuf>,
+
+        /// Preview changes without applying
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Interactively confirm each file
+        #[arg(long, short)]
+        interactive: bool,
+
+        /// Create backup before modifying (default: true)
+        #[arg(long, default_value = "true")]
+        backup: bool,
+
+        /// Cache file
+        #[arg(short, long, default_value = ".acp/acp.cache.json")]
+        cache: PathBuf,
+    },
+}
+
+/// Output format for map command
+#[derive(clap::ValueEnum, Clone, Copy, Debug, Default)]
+enum MapFormatArg {
+    #[default]
+    Tree,
+    Flat,
+    Json,
 }
 
 /// Source documentation standard for annotation conversion
@@ -331,6 +400,37 @@ enum AttemptCommands {
 }
 
 #[derive(Subcommand)]
+enum DaemonCommands {
+    /// Start the ACP daemon
+    Start {
+        /// Run in foreground mode (don't daemonize)
+        #[arg(long, short = 'f')]
+        foreground: bool,
+
+        /// HTTP server port
+        #[arg(long, default_value = "9222")]
+        port: u16,
+    },
+
+    /// Stop the ACP daemon
+    Stop,
+
+    /// Check daemon status
+    Status,
+
+    /// Show daemon logs
+    Logs {
+        /// Number of lines to show
+        #[arg(short = 'n', default_value = "50")]
+        lines: usize,
+
+        /// Follow log output
+        #[arg(short = 'f', long)]
+        follow: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum QueryCommands {
     /// Query a symbol
     Symbol {
@@ -384,7 +484,10 @@ async fn main() -> anyhow::Result<()> {
     };
 
     // Check for config requirement (most commands require .acp.config.json)
-    let requires_config = !matches!(cli.command, Commands::Init { .. } | Commands::Validate { .. });
+    let requires_config = !matches!(
+        cli.command,
+        Commands::Init { .. } | Commands::Validate { .. } | Commands::Daemon { .. }
+    );
     if requires_config {
         let config_path = PathBuf::from(".acp.config.json");
         if !config_path.exists() {
@@ -595,14 +698,63 @@ async fn main() -> anyhow::Result<()> {
             println!("  Variables: {}", vars_file.variables.len());
         }
 
-        Commands::Query { query, cache } => {
+        Commands::Query { query, cache, json } => {
             let cache_data = Cache::from_json(&cache)?;
             let q = Query::new(&cache_data);
 
             match query {
                 QueryCommands::Symbol { name } => {
                     if let Some(sym) = q.symbol(&name) {
-                        println!("{}", serde_json::to_string_pretty(sym)?);
+                        if json {
+                            println!("{}", serde_json::to_string_pretty(sym)?);
+                        } else {
+                            // M04: Enhanced human-readable symbol output
+                            println!("{}", style(&sym.name).bold());
+                            println!("{}", "=".repeat(60));
+                            println!();
+
+                            // Location
+                            if sym.lines.len() >= 2 {
+                                println!("Location: {}:{}-{}", sym.file, sym.lines[0], sym.lines[1]);
+                            } else if !sym.lines.is_empty() {
+                                println!("Location: {}:{}", sym.file, sym.lines[0]);
+                            } else {
+                                println!("Location: {}", sym.file);
+                            }
+
+                            // Type
+                            println!("Type:     {:?}", sym.symbol_type);
+
+                            // Purpose
+                            if let Some(ref purpose) = sym.purpose {
+                                println!("Purpose:  {}", purpose);
+                            }
+
+                            // Constraints
+                            if let Some(ref constraints) = sym.constraints {
+                                println!();
+                                println!("{}:", style("Constraints").bold());
+                                println!("  @acp:lock {} - {}",
+                                    constraints.level,
+                                    &constraints.directive
+                                );
+                            }
+
+                            // Signature
+                            if let Some(ref sig) = sym.signature {
+                                println!();
+                                println!("{}:", style("Signature").bold());
+                                println!("  {}", sig);
+                            }
+
+                            // Callers
+                            let callers = q.callers(&name);
+                            if !callers.is_empty() {
+                                println!();
+                                println!("{} ({}):", style("Callers").bold(), callers.len());
+                                println!("  {}", callers.join(", "));
+                            }
+                        }
                     } else {
                         eprintln!("{} Symbol not found: {}", style("✗").red(), name);
                     }
@@ -610,7 +762,80 @@ async fn main() -> anyhow::Result<()> {
 
                 QueryCommands::File { path } => {
                     if let Some(file) = q.file(&path) {
-                        println!("{}", serde_json::to_string_pretty(file)?);
+                        if json {
+                            println!("{}", serde_json::to_string_pretty(file)?);
+                        } else {
+                            // M03: Enhanced human-readable file output
+                            println!("{}", style(&file.path).bold());
+                            println!("{}", "=".repeat(60));
+                            println!();
+
+                            println!("{}:", style("File Metadata").bold());
+
+                            // Purpose
+                            if let Some(ref purpose) = file.purpose {
+                                println!("  Purpose:     {}", purpose);
+                            }
+
+                            // Lines
+                            println!("  Lines:       {}", file.lines);
+
+                            // Language
+                            println!("  Language:    {:?}", file.language);
+
+                            // Constraint level from cache
+                            if let Some(ref constraints) = cache_data.constraints {
+                                if let Some(fc) = constraints.by_file.get(&file.path) {
+                                    if let Some(ref mutation) = fc.mutation {
+                                        println!("  Constraint:  {:?}", mutation.level);
+                                    }
+                                }
+                            }
+
+                            // Symbols
+                            if !file.exports.is_empty() {
+                                println!();
+                                println!("{}:", style("Symbols").bold());
+                                for sym_name in &file.exports {
+                                    if let Some(sym) = cache_data.symbols.get(sym_name) {
+                                        let sym_type = format!("{:?}", sym.symbol_type).to_lowercase();
+                                        let line_info = if sym.lines.len() >= 2 {
+                                            format!("{}:{}-{}", sym_type, sym.lines[0], sym.lines[1])
+                                        } else if !sym.lines.is_empty() {
+                                            format!("{}:{}", sym_type, sym.lines[0])
+                                        } else {
+                                            sym_type
+                                        };
+
+                                        let frozen = if sym.constraints.as_ref().map(|c| c.level == "frozen").unwrap_or(false) {
+                                            " [frozen]"
+                                        } else {
+                                            ""
+                                        };
+                                        println!("  {} ({}){}", sym.name, line_info, frozen);
+                                    } else {
+                                        println!("  {}", sym_name);
+                                    }
+                                }
+                            }
+
+                            // Inline annotations
+                            if !file.inline.is_empty() {
+                                println!();
+                                println!("{}:", style("Inline Annotations").bold());
+                                for ann in &file.inline {
+                                    let expires = ann.expires.as_ref()
+                                        .map(|e| format!(" (expires {})", e))
+                                        .unwrap_or_default();
+                                    println!("  Line {}: @acp:{} - {}{}",
+                                        ann.line,
+                                        ann.annotation_type,
+                                        ann.directive,
+                                        expires
+                                    );
+                                }
+                            }
+                        }
                     } else {
                         eprintln!("{} File not found: {}", style("✗").red(), path);
                     }
@@ -619,10 +844,14 @@ async fn main() -> anyhow::Result<()> {
                 QueryCommands::Callers { symbol } => {
                     let callers = q.callers(&symbol);
                     if callers.is_empty() {
-                        println!("No callers found for {}", symbol);
+                        println!("{} No callers found for {}", style("ℹ").cyan(), symbol);
                     } else {
-                        for caller in callers {
-                            println!("{}", caller);
+                        if json {
+                            println!("{}", serde_json::to_string_pretty(&callers)?);
+                        } else {
+                            for caller in callers {
+                                println!("{}", caller);
+                            }
                         }
                     }
                 }
@@ -630,21 +859,30 @@ async fn main() -> anyhow::Result<()> {
                 QueryCommands::Callees { symbol } => {
                     let callees = q.callees(&symbol);
                     if callees.is_empty() {
-                        println!("No callees found for {}", symbol);
+                        println!("{} No callees found for {}", style("ℹ").cyan(), symbol);
                     } else {
-                        for callee in callees {
-                            println!("{}", callee);
+                        if json {
+                            println!("{}", serde_json::to_string_pretty(&callees)?);
+                        } else {
+                            for callee in callees {
+                                println!("{}", callee);
+                            }
                         }
                     }
                 }
 
                 QueryCommands::Domains => {
-                    for domain in q.domains() {
-                        println!("{}: {} files, {} symbols",
-                            style(&domain.name).cyan(),
-                            domain.files.len(),
-                            domain.symbols.len()
-                        );
+                    let domains: Vec<_> = q.domains().collect();
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&domains)?);
+                    } else {
+                        for domain in &domains {
+                            println!("{}: {} files, {} symbols",
+                                style(&domain.name).cyan(),
+                                domain.files.len(),
+                                domain.symbols.len()
+                            );
+                        }
                     }
                 }
 
@@ -663,11 +901,15 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 QueryCommands::Stats => {
-                    println!("Files: {}", cache_data.stats.files);
-                    println!("Symbols: {}", cache_data.stats.symbols);
-                    println!("Lines: {}", cache_data.stats.lines);
-                    println!("Coverage: {:.1}%", cache_data.stats.annotation_coverage);
-                    println!("Domains: {}", cache_data.domains.len());
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&cache_data.stats)?);
+                    } else {
+                        println!("Files: {}", cache_data.stats.files);
+                        println!("Symbols: {}", cache_data.stats.symbols);
+                        println!("Lines: {}", cache_data.stats.lines);
+                        println!("Coverage: {:.1}%", cache_data.stats.annotation_coverage);
+                        println!("Domains: {}", cache_data.domains.len());
+                    }
                 }
             }
         }
@@ -920,22 +1162,47 @@ async fn main() -> anyhow::Result<()> {
                     println!("  {} {}", style(&action.action).dim(), action.file);
                 }
             } else {
-                eprintln!("Specify --attempt or --checkpoint");
+                eprintln!("{} Specify --attempt or --checkpoint", style("✗").red());
+                std::process::exit(1);
             }
         }
 
         Commands::Validate { file } => {
             let content = std::fs::read_to_string(&file)?;
+            let filename = file.to_string_lossy();
 
-            if file.to_string_lossy().contains("cache") {
-                acp::schema::validate_cache(&content)?;
-                println!("{} Cache file is valid", style("✓").green());
-            } else if file.to_string_lossy().contains("vars") {
-                acp::schema::validate_vars(&content)?;
-                println!("{} Vars file is valid", style("✓").green());
+            // Use detect_schema_type() for all 6 schema types
+            if let Some(schema_type) = acp::schema::detect_schema_type(&filename) {
+                acp::schema::validate_by_type(&content, schema_type)?;
+                println!("{} {} file is valid", style("✓").green(), schema_type.to_uppercase());
             } else {
-                eprintln!("Unknown file type. Expected 'cache' or 'vars' in filename.");
+                // Try auto-detection from $schema field
+                let json: serde_json::Value = serde_json::from_str(&content)?;
+                if let Some(schema_url) = json.get("$schema").and_then(|s| s.as_str()) {
+                    let detected = if schema_url.contains("cache") { "cache" }
+                        else if schema_url.contains("vars") { "vars" }
+                        else if schema_url.contains("config") { "config" }
+                        else if schema_url.contains("attempts") { "attempts" }
+                        else if schema_url.contains("sync") { "sync" }
+                        else if schema_url.contains("primer") { "primer" }
+                        else { "" };
+
+                    if !detected.is_empty() {
+                        acp::schema::validate_by_type(&content, detected)?;
+                        println!("{} {} file is valid", style("✓").green(), detected.to_uppercase());
+                    } else {
+                        eprintln!("{} Unknown schema type. Could not detect from filename or $schema field.", style("✗").red());
+                        std::process::exit(1);
+                    }
+                } else {
+                    eprintln!("{} Unknown file type. Provide filename with schema type (cache, vars, config, primer, attempts, sync) or include $schema field.", style("✗").red());
+                    std::process::exit(1);
+                }
             }
+        }
+
+        Commands::Daemon { cmd } => {
+            handle_daemon_command(cmd)?;
         }
 
         Commands::Annotate {
@@ -1214,6 +1481,43 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
+
+        Commands::Map { path, depth, inline, format, cache } => {
+            let cache_data = Cache::from_json(&cache)?;
+
+            let map_format = match format {
+                MapFormatArg::Tree => MapFormat::Tree,
+                MapFormatArg::Flat => MapFormat::Flat,
+                MapFormatArg::Json => MapFormat::Json,
+            };
+
+            let options = MapOptions {
+                depth,
+                show_inline: inline,
+                format: map_format,
+            };
+
+            execute_map(&cache_data, &path, options)?;
+        }
+
+        Commands::Migrate { add_directives, paths, dry_run, interactive, backup, cache } => {
+            if !add_directives {
+                eprintln!("{} Currently only --add-directives is supported", style("!").yellow());
+                eprintln!("  Run: acp migrate --add-directives");
+                std::process::exit(1);
+            }
+
+            let cache_data = Cache::from_json(&cache)?;
+
+            let options = MigrateOptions {
+                paths,
+                dry_run,
+                interactive,
+                backup,
+            };
+
+            execute_migrate(&cache_data, options)?;
+        }
     }
 
     Ok(())
@@ -1224,5 +1528,228 @@ fn print_chain_tree(chain: &[String], depth: usize) {
         let prefix = if i == chain.len() - 2 { "└── " } else { "├── " };
         let indent = "│   ".repeat(depth);
         println!("{}{}${}", indent, prefix, style(item).cyan());
+    }
+}
+
+/// Handle daemon subcommands
+fn handle_daemon_command(cmd: DaemonCommands) -> anyhow::Result<()> {
+    use std::process::Command;
+    use std::io::{BufRead, BufReader};
+
+    let acp_dir = PathBuf::from(".acp");
+    let pid_file = acp_dir.join("daemon.pid");
+    let log_file = acp_dir.join("daemon.log");
+
+    match cmd {
+        DaemonCommands::Start { foreground, port } => {
+            // Check if already running
+            if let Some(pid) = read_pid_file(&pid_file) {
+                if is_process_running(pid) {
+                    println!("{} Daemon already running with PID {}", style("!").yellow(), pid);
+                    return Ok(());
+                }
+                // Stale PID file
+                let _ = std::fs::remove_file(&pid_file);
+            }
+
+            // Ensure .acp directory exists
+            if !acp_dir.exists() {
+                std::fs::create_dir_all(&acp_dir)?;
+            }
+
+            // Find the acpd binary
+            let acpd_path = find_acpd_binary()?;
+
+            if foreground {
+                // Run in foreground - exec the daemon
+                println!("{} Starting daemon in foreground mode...", style("→").cyan());
+                let status = Command::new(&acpd_path)
+                    .arg("--port")
+                    .arg(port.to_string())
+                    .arg("run")
+                    .status()?;
+
+                if !status.success() {
+                    eprintln!("{} Daemon exited with error", style("✗").red());
+                    std::process::exit(1);
+                }
+            } else {
+                // Start in background
+                let log = std::fs::File::create(&log_file)?;
+                let log_err = log.try_clone()?;
+
+                let child = Command::new(&acpd_path)
+                    .arg("--port")
+                    .arg(port.to_string())
+                    .arg("run")
+                    .stdout(log)
+                    .stderr(log_err)
+                    .spawn()?;
+
+                let pid = child.id();
+                std::fs::write(&pid_file, pid.to_string())?;
+
+                println!("{} Daemon started with PID {} (port {})", style("✓").green(), pid, port);
+                println!("  Log file: {}", log_file.display());
+                println!("  API: http://127.0.0.1:{}/health", port);
+            }
+        }
+
+        DaemonCommands::Stop => {
+            match read_pid_file(&pid_file) {
+                Some(pid) => {
+                    if is_process_running(pid) {
+                        // Send SIGTERM
+                        #[cfg(unix)]
+                        {
+                            let _ = Command::new("kill")
+                                .arg("-TERM")
+                                .arg(pid.to_string())
+                                .status();
+                        }
+
+                        #[cfg(not(unix))]
+                        {
+                            eprintln!("{} Stopping daemon not supported on this platform", style("✗").red());
+                        }
+
+                        println!("{} Sent stop signal to daemon (PID {})", style("✓").green(), pid);
+                    } else {
+                        println!("{} Daemon not running (stale PID file)", style("!").yellow());
+                    }
+                    let _ = std::fs::remove_file(&pid_file);
+                }
+                None => {
+                    println!("{} No daemon running", style("•").dim());
+                }
+            }
+        }
+
+        DaemonCommands::Status => {
+            match read_pid_file(&pid_file) {
+                Some(pid) => {
+                    if is_process_running(pid) {
+                        println!("{} Daemon is running (PID {})", style("✓").green(), pid);
+
+                        // Try to check health endpoint
+                        if let Ok(health) = check_daemon_health(9222) {
+                            println!("  Health: {}", health);
+                        }
+                    } else {
+                        println!("{} Daemon not running (stale PID file)", style("!").yellow());
+                        let _ = std::fs::remove_file(&pid_file);
+                    }
+                }
+                None => {
+                    println!("{} Daemon not running", style("•").dim());
+                }
+            }
+        }
+
+        DaemonCommands::Logs { lines, follow } => {
+            if !log_file.exists() {
+                println!("{} No log file found at {}", style("!").yellow(), log_file.display());
+                return Ok(());
+            }
+
+            if follow {
+                // Use tail -f
+                let mut child = Command::new("tail")
+                    .arg("-f")
+                    .arg("-n")
+                    .arg(lines.to_string())
+                    .arg(&log_file)
+                    .spawn()?;
+
+                child.wait()?;
+            } else {
+                // Read last N lines
+                let file = std::fs::File::open(&log_file)?;
+                let reader = BufReader::new(file);
+                let all_lines: Vec<String> = reader.lines().filter_map(|l| l.ok()).collect();
+                let start = if all_lines.len() > lines { all_lines.len() - lines } else { 0 };
+
+                for line in &all_lines[start..] {
+                    println!("{}", line);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn read_pid_file(path: &PathBuf) -> Option<u32> {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+}
+
+fn is_process_running(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        use std::process::Command;
+        Command::new("kill")
+            .arg("-0")
+            .arg(pid.to_string())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+
+    #[cfg(not(unix))]
+    {
+        true // Assume running on non-Unix
+    }
+}
+
+fn find_acpd_binary() -> anyhow::Result<PathBuf> {
+    // First check if acpd is in PATH
+    if let Ok(output) = std::process::Command::new("which").arg("acpd").output() {
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                return Ok(PathBuf::from(path));
+            }
+        }
+    }
+
+    // Check common locations relative to current binary
+    let current_exe = std::env::current_exe()?;
+    if let Some(bin_dir) = current_exe.parent() {
+        let acpd_path = bin_dir.join("acpd");
+        if acpd_path.exists() {
+            return Ok(acpd_path);
+        }
+    }
+
+    // Check target/debug and target/release
+    for dir in &["target/debug/acpd", "target/release/acpd"] {
+        let path = PathBuf::from(dir);
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+
+    Err(anyhow::anyhow!(
+        "Could not find acpd binary. Make sure it's installed or built.\n\
+         Try: cargo build -p acpd"
+    ))
+}
+
+fn check_daemon_health(port: u16) -> Result<String, Box<dyn std::error::Error>> {
+    use std::process::Command;
+
+    let output = Command::new("curl")
+        .arg("-s")
+        .arg("-m")
+        .arg("2") // 2 second timeout
+        .arg(format!("http://127.0.0.1:{}/health", port))
+        .output()?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err("Failed to connect".into())
     }
 }

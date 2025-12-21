@@ -5,6 +5,23 @@ All notable changes to the AI Context Protocol specification and reference imple
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-12-21
+
+### Added
+
+- Document all six ACP JSON files in specification Section 3
+  - Added Section 3.4: Attempts File (`.acp/acp.attempts.json`)
+  - Added Section 3.5: Sync File (`.acp/acp.sync.json`)
+  - Added Section 3.6: Primer File (`.acp.primer.json`)
+- Add cross-references in Chapter 13 (Debug Sessions) for attempts.json
+- Add cross-references in Chapter 14 (Bootstrap) for primer.json
+
+### Changed
+
+- Updated file count from "three JSON files" to "six JSON files" in Section 3
+- Expanded file format table with all six schema-backed files
+- Added implementation notes for Level 2 compliance with new file support
+
 ## [0.2.0] - 2025-12-20
 
 ### Added

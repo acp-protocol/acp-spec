@@ -12,6 +12,7 @@
 //! - Handling comment syntax for different languages
 //! - Preserving existing documentation
 
+use std::collections::HashSet;
 use std::path::Path;
 
 use similar::TextDiff;
@@ -272,7 +273,49 @@ impl Writer {
                 // Insert into existing doc comment
                 // Place ACP annotations after the opening line
                 let insert_line = change.existing_doc_start.unwrap();
-                let annotation_lines = style.format_for_insertion(&change.annotations, indent);
+                let doc_end = change.existing_doc_end.unwrap_or(insert_line + 20);
+
+                // Check for existing @acp: annotations in the doc comment range
+                let existing_in_range: HashSet<String> = lines
+                    [insert_line.saturating_sub(1)..doc_end.min(lines.len())]
+                    .iter()
+                    .filter_map(|line| {
+                        if line.contains("@acp:") {
+                            // Extract the annotation type and value for comparison
+                            // e.g., "@acp:summary \"something\"" -> "@acp:summary"
+                            let trimmed = line.trim();
+                            if let Some(start) = trimmed.find("@acp:") {
+                                let ann_part = &trimmed[start..];
+                                // Get just the annotation type (e.g., "@acp:summary")
+                                let type_end = ann_part
+                                    .find(|c: char| c.is_whitespace() || c == '"')
+                                    .unwrap_or(ann_part.len());
+                                Some(ann_part[..type_end].to_string())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                // Filter out annotations that already exist (by type)
+                let new_annotations: Vec<_> = change
+                    .annotations
+                    .iter()
+                    .filter(|ann| {
+                        let ann_type = format!("@acp:{}", ann.annotation_type.namespace());
+                        !existing_in_range.contains(&ann_type)
+                    })
+                    .cloned()
+                    .collect();
+
+                if new_annotations.is_empty() {
+                    continue; // Nothing new to add, skip this change
+                }
+
+                let annotation_lines = style.format_for_insertion(&new_annotations, indent);
 
                 for (i, ann_line) in annotation_lines.into_iter().enumerate() {
                     let insert_at = insert_line + i; // After the opening line

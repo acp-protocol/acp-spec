@@ -7,7 +7,7 @@
 # @acp:summary "Package metadata and publishing information"
 [package]
 name = "acp"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["ACP Contributors"]
 description = "AI Context Protocol - Token-efficient and context enhancing code documentation for AI systems"
@@ -113,18 +113,6 @@ default = []
 sqlite = ["rusqlite"]       # SQLite database support
 mcp = ["reqwest"]           # MCP server integration
 full = ["sqlite", "mcp"]    # All optional features
-
-# @acp:summary "Release build optimizations for binary distribution"
-[profile.release]
-lto = true                  # Link-time optimization
-codegen-units = 1           # Single codegen unit for better optimization
-panic = "abort"             # Smaller binary, no unwinding
-strip = true                # Strip symbols
-
-# @acp:summary "Development build configuration for fast iteration"
-[profile.dev]
-opt-level = 0               # No optimization
-debug = true                # Full debug info
 
 # @acp:summary "Benchmark configuration (uncomment when ready)"
 # [[bench]]

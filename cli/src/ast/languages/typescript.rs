@@ -28,6 +28,15 @@ impl LanguageExtractor for TypeScriptExtractor {
         let mut symbols = Vec::new();
         let root = tree.root_node();
         self.extract_symbols_recursive(&root, source, &mut symbols, None);
+
+        // Second pass: mark symbols that are exported via `export { name1, name2 }` clauses
+        let exported_names = self.find_named_exports(&root, source);
+        for sym in &mut symbols {
+            if exported_names.contains(&sym.name) {
+                sym.exported = true;
+            }
+        }
+
         Ok(symbols)
     }
 
@@ -745,6 +754,65 @@ impl TypeScriptExtractor {
             .collect::<Vec<_>>()
             .join("\n")
     }
+
+    /// Find all names exported via `export { name1, name2 }` clauses
+    fn find_named_exports(&self, node: &Node, source: &str) -> std::collections::HashSet<String> {
+        let mut exports = std::collections::HashSet::new();
+        self.collect_named_exports(node, source, &mut exports);
+        exports
+    }
+
+    fn collect_named_exports(
+        &self,
+        node: &Node,
+        source: &str,
+        exports: &mut std::collections::HashSet<String>,
+    ) {
+        // Handle export statements with export_clause (e.g., `export { Button, Card as CardComponent }`)
+        if node.kind() == "export_statement" {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.kind() == "export_clause" {
+                    self.parse_export_clause(&child, source, exports);
+                }
+            }
+        }
+
+        // Recurse into children
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.collect_named_exports(&child, source, exports);
+        }
+    }
+
+    fn parse_export_clause(
+        &self,
+        node: &Node,
+        source: &str,
+        exports: &mut std::collections::HashSet<String>,
+    ) {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            // export_specifier: name, or name as alias
+            if child.kind() == "export_specifier" {
+                // Get the local name (the original identifier, not the alias)
+                if let Some(name_node) = child.child_by_field_name("name") {
+                    let name = node_text(&name_node, source).to_string();
+                    exports.insert(name);
+                } else {
+                    // Fallback: get the first identifier
+                    let mut inner_cursor = child.walk();
+                    for inner_child in child.children(&mut inner_cursor) {
+                        if inner_child.kind() == "identifier" {
+                            let name = node_text(&inner_child, source).to_string();
+                            exports.insert(name);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -851,5 +919,30 @@ import defaultExport from './default';
         assert!(imports[1].is_namespace);
         assert_eq!(imports[2].source, "./default");
         assert!(imports[2].is_default);
+    }
+
+    #[test]
+    fn test_named_export_clause() {
+        // Test that symbols exported via `export { name }` are marked as exported
+        let source = r#"
+function Button() {
+    return <button>Click me</button>;
+}
+
+const buttonVariants = {};
+
+export { Button, buttonVariants };
+"#;
+        let (tree, src) = parse_ts(source);
+        let extractor = TypeScriptExtractor;
+        let symbols = extractor.extract_symbols(&tree, &src).unwrap();
+
+        // Button should be marked as exported
+        let button = symbols.iter().find(|s| s.name == "Button").expect("Button not found");
+        assert!(button.exported, "Button should be marked as exported");
+
+        // buttonVariants should be marked as exported
+        let variants = symbols.iter().find(|s| s.name == "buttonVariants").expect("buttonVariants not found");
+        assert!(variants.exported, "buttonVariants should be marked as exported");
     }
 }

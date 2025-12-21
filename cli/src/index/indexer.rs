@@ -202,7 +202,7 @@ impl Indexer {
                     .push(result.file.path.clone());
             }
 
-            // Build constraints from parse result
+            // Build constraints from parse result (RFC-001 compliant)
             if result.lock_level.is_some() || !result.ai_hints.is_empty() {
                 let lock_level = result.lock_level.as_ref().map(|l| {
                     match l.to_lowercase().as_str() {
@@ -228,6 +228,9 @@ impl Indexer {
                         allowed_operations: None,
                         forbidden_operations: None,
                     }),
+                    // RFC-001: Include directive from lock annotation
+                    directive: result.lock_directive.clone(),
+                    auto_generated: result.lock_directive.is_none(),
                     ..Default::default()
                 };
                 constraint_index.by_file.insert(result.file.path.clone(), constraints);
@@ -484,6 +487,8 @@ fn convert_ast_symbols(ast_symbols: &[ExtractedSymbol], file_path: &str) -> Vec<
             exported: matches!(sym.visibility, AstVisibility::Public),
             signature: sym.signature.clone(),
             summary: sym.doc_comment.clone(),
+            purpose: None, // RFC-001: Populated from @acp:fn/@acp:class annotations
+            constraints: None, // RFC-001: Populated from symbol-level constraints
             async_fn: sym.is_async,
             visibility,
             calls: vec![], // Populated separately from call graph

@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// @acp:summary "Complete constraint set for a scope"
+/// @acp:summary "Complete constraint set for a scope (RFC-001 compliant)"
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Constraints {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -27,10 +27,23 @@ pub struct Constraints {
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub references: Vec<Reference>,
+
+    /// RFC-001: Aggregated self-documenting directive from annotations
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub directive: Option<String>,
+
+    /// RFC-001: Whether directive was auto-generated
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub auto_generated: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 impl Constraints {
     /// Merge with another constraint set (other takes precedence)
+    /// RFC-001: Aggregates directives when merging
     pub fn merge(&self, other: &Constraints) -> Constraints {
         Constraints {
             style: other.style.clone().or_else(|| self.style.clone()),
@@ -43,6 +56,10 @@ impl Constraints {
                 refs.extend(other.references.clone());
                 refs
             },
+            // RFC-001: Aggregate directives - more specific (other) takes precedence
+            directive: other.directive.clone().or_else(|| self.directive.clone()),
+            auto_generated: other.directive.is_some() && other.auto_generated ||
+                            other.directive.is_none() && self.auto_generated,
         }
     }
 
@@ -191,6 +208,8 @@ pub enum LockLevel {
     TestsRequired,
     /// Changes must update docs
     DocsRequired,
+    /// Changes require code review
+    ReviewRequired,
     /// Normal - can be modified freely
     #[default]
     Normal,
@@ -587,6 +606,8 @@ mod tests {
             quality: None,
             deprecation: None,
             references: vec![],
+            directive: Some("Base directive".to_string()),
+            auto_generated: false,
         };
 
         let override_constraints = Constraints {
@@ -606,6 +627,8 @@ mod tests {
             quality: None,
             deprecation: None,
             references: vec![],
+            directive: Some("Override directive".to_string()),
+            auto_generated: false,
         };
 
         let merged = base.merge(&override_constraints);

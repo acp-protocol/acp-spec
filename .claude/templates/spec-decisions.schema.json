@@ -1,0 +1,164 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://acp-protocol.dev/schemas/v1/spec-decisions.schema.json",
+  "title": "ACP Spec Decisions",
+  "description": "Schema for storing user decisions on RFC-001 open questions for spec remediation",
+  "type": "object",
+  "required": ["version", "rfc_reference", "decisions"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Schema version"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When decisions were first created"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When decisions were last modified"
+    },
+    "rfc_reference": {
+      "type": "string",
+      "description": "RFC that these decisions relate to",
+      "examples": ["RFC-001"]
+    },
+    "spec_version": {
+      "type": "string",
+      "description": "Target spec version for these decisions"
+    },
+    "decisions": {
+      "type": "object",
+      "description": "Map of question IDs to decision objects",
+      "additionalProperties": {
+        "$ref": "#/$defs/decision"
+      }
+    },
+    "conflicts_resolved": {
+      "type": "array",
+      "description": "Any decision conflicts that were resolved",
+      "items": {
+        "type": "object",
+        "properties": {
+          "questions": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "resolution": { "type": "string" },
+          "resolved_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes or context"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "decision": {
+      "type": "object",
+      "required": ["choice"],
+      "properties": {
+        "choice": {
+          "type": "string",
+          "description": "Selected option key (e.g., 'A', 'B', 'C')",
+          "pattern": "^[A-Z]$"
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label for the choice"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why this choice was made"
+        },
+        "decided_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this decision was made"
+        },
+        "decided_by": {
+          "type": "string",
+          "description": "Who made this decision"
+        },
+        "custom_value": {
+          "type": "string",
+          "description": "Custom value if choice allows customization"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "$schema": "https://acp-protocol.dev/schemas/v1/spec-decisions.schema.json",
+      "version": "1.0.0",
+      "created": "2024-12-21T10:00:00Z",
+      "rfc_reference": "RFC-001",
+      "spec_version": "1.0.0-revised",
+      "decisions": {
+        "Q01": {
+          "choice": "B",
+          "label": "Always optional with auto-generated defaults",
+          "rationale": "Prioritizes backward compatibility",
+          "decided_at": "2024-12-21T10:05:00Z"
+        },
+        "Q02": {
+          "choice": "B",
+          "label": "Soft limit of 500 chars (warn, don't error)",
+          "rationale": "Balance between flexibility and cache size",
+          "decided_at": "2024-12-21T10:06:00Z"
+        },
+        "Q03": {
+          "choice": "C",
+          "label": "Most specific scope wins (inline > symbol > file)",
+          "rationale": "Follows principle of least surprise",
+          "decided_at": "2024-12-21T10:07:00Z"
+        },
+        "Q04": {
+          "choice": "B",
+          "label": "Full recommended directive",
+          "rationale": "Provides maximum clarity for AI agents",
+          "decided_at": "2024-12-21T10:08:00Z"
+        },
+        "Q05": {
+          "choice": "A",
+          "label": "No localization",
+          "rationale": "Adds complexity for unclear benefit",
+          "decided_at": "2024-12-21T10:09:00Z"
+        },
+        "Q06": {
+          "choice": "A",
+          "label": "Symbol only (no inheritance)",
+          "rationale": "Explicit is better than implicit",
+          "decided_at": "2024-12-21T10:10:00Z"
+        },
+        "Q07": {
+          "choice": "D",
+          "label": "First-N then summary",
+          "rationale": "Balance between visibility and noise",
+          "decided_at": "2024-12-21T10:11:00Z"
+        },
+        "Q08": {
+          "choice": "C",
+          "label": "Mark as auto-generated with flag",
+          "rationale": "Tools can distinguish explicit vs generated",
+          "decided_at": "2024-12-21T10:12:00Z"
+        }
+      },
+      "conflicts_resolved": [],
+      "notes": "Initial decisions for RFC-001 compliance"
+    }
+  ]
+}
