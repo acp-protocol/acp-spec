@@ -1,6 +1,6 @@
-# RFC-0011: Annotation Provenance Tracking
+# RFC-0003: Annotation Provenance Tracking
 
-- **RFC ID**: 0011
+- **RFC ID**: 0003
 - **Title**: Annotation Provenance Tracking
 - **Author**: David (ACP Protocol)
 - **Status**: Draft

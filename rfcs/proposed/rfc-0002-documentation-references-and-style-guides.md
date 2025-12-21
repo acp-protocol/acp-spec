@@ -1,6 +1,6 @@
-# RFC-0010: Documentation References and Style Guides
+# RFC-0002: Documentation References and Style Guides
 
-- **RFC ID**: 0010
+- **RFC ID**: 0002
 - **Title**: Documentation References and Style Guides
 - **Author**: David (ACP Protocol)
 - **Status**: Draft
