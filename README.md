@@ -64,13 +64,13 @@ These annotations are indexed into a structured JSON cache that any AI tool can 
 ### 1. Install the CLI
 
 ```bash
-# From source (Rust required)
-git clone https://github.com/acp-protocol/acp-spec.git
-cd acp-spec/cli
-cargo install --path .
+# Via Homebrew (macOS/Linux)
+brew install acp-protocol/tap/acp
 
-# Or build directly
-cargo build --release
+# From source (Rust required)
+git clone https://github.com/acp-protocol/acp-cli.git
+cd acp-cli
+cargo install --path .
 ```
 
 ### 2. Initialize Your Project
@@ -161,8 +161,8 @@ acp expand "Check \$SYM_VALIDATE_TOKEN"
 
 | Resource | Description |
 |----------|-------------|
-| [CLI Reference](./cli/README.md) | Command-line interface |
-| [Testing Guide](./cli/docs/TESTING_GUIDE.md) | Testing the CLI |
+| [CLI Repository](https://github.com/acp-protocol/acp-cli) | Command-line interface |
+| [Daemon Repository](https://github.com/acp-protocol/acp-daemon) | Background daemon service |
 | [Cache Format](./spec/chapters/03-cache-format.md) | Cache file structure |
 | [Config Format](./spec/chapters/04-config-format.md) | Configuration options |
 

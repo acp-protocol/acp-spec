@@ -81,8 +81,8 @@ docs/discord/
 
 ### GitHub
 
-- [Main Repository](https://github.com/acp-protocol/acp-spec)
-- [CLI Documentation](../../cli/README.md)
+- [Specification Repository](https://github.com/acp-protocol/acp-spec)
+- [CLI Repository](https://github.com/acp-protocol/acp-cli)
 - [Specification](../../spec/ACP-1.0.md)
 - [Contributing Guide](../../CONTRIBUTING.md)
 

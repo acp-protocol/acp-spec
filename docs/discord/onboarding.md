@@ -53,13 +53,13 @@ Complete these steps to get the most out of the server:
 ### 1. Install the CLI
 
 ```bash
-# From source (Rust required)
-git clone https://github.com/acp-protocol/acp-spec.git
-cd acp-spec/cli
-cargo install --path .
+# Via Homebrew (macOS/Linux)
+brew install acp-protocol/tap/acp
 
-# Or build directly
-cargo build --release
+# From source (Rust required)
+git clone https://github.com/acp-protocol/acp-cli.git
+cd acp-cli
+cargo install --path .
 ```
 
 ### 2. Initialize Your Project
@@ -132,7 +132,7 @@ acp query domains
 - Common workflows
 
 **Resources:**
-- [CLI README](../../cli/README.md)
+- [CLI Repository](https://github.com/acp-protocol/acp-cli)
 - `#cli-discussion` channel
 - Bot command: `/cli-install`
 

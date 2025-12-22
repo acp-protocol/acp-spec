@@ -3,6 +3,9 @@
 > **Version**: 1.0.0
 > **Status**: Implementation Reference
 > **Last Updated**: December 2024
+> **Repository**: [acp-protocol/acp-cli](https://github.com/acp-protocol/acp-cli)
+
+> **Note**: The CLI has been moved to its own repository. Path references like `cli/src/...` in this document correspond to `src/...` in the acp-cli repository.
 
 This guide provides complete, production-ready code for the ACP (AI Context Protocol) CLI tool. All code snippets are from the current implementation with recommended organizational structure for maintainability.
 

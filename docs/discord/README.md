@@ -6,7 +6,7 @@ Welcome to the official Discord server for the AI Context Protocol (ACP)! This s
 
 - **Join Server**: [discord.gg/acp-protocol](https://discord.gg/acp-protocol)
 - **GitHub**: [github.com/acp-protocol/acp-spec](https://github.com/acp-protocol/acp-spec)
-- **Documentation**: [Specification](./../../spec/ACP-1.0.md) | [CLI Guide](./../../cli/README.md)
+- **Documentation**: [Specification](./../../spec/ACP-1.0.md) | [CLI Guide](https://github.com/acp-protocol/acp-cli)
 - **Website**: [acp-protocol.dev](https://acp-protocol.dev)
 
 ## Channel Structure
@@ -84,7 +84,7 @@ Get involved in the project:
 
 ### Documentation
 - [Full Specification](../../spec/ACP-1.0.md) - Complete ACP protocol specification
-- [CLI Reference](../../cli/README.md) - Command-line interface documentation
+- [CLI Repository](https://github.com/acp-protocol/acp-cli) - Command-line interface
 - [Getting Started Guide](./onboarding.md) - Step-by-step onboarding guide
 - [Bot Commands](./bot-commands.md) - Discord bot command reference
 
