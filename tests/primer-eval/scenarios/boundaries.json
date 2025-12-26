@@ -1,0 +1,35 @@
+{
+  "$schema": "./scenario.schema.json",
+  "category": "boundaries",
+  "description": "Tests behavior at knowledge boundaries",
+  "scenarios": [
+    {
+      "id": "no-context-question",
+      "name": "No ACP Context Question",
+      "description": "User asks about something not in ACP. AI should acknowledge limits.",
+      "category": "boundaries",
+      "difficulty": "medium",
+      "userMessage": "What's the database schema for the users table?",
+      "expectedBehavior": "The AI should suggest using ACP commands to query for this information (acp query, acp knowledge) rather than making up a schema. It should NOT fabricate a database schema. It should acknowledge it needs to check the actual codebase/documentation.",
+      "criteria": [
+        {
+          "id": "suggests-query",
+          "description": "Suggests using acp query or checking available data",
+          "type": "regex",
+          "pattern": "acp\\s+(query|knowledge)|check|look|find|search",
+          "required": true,
+          "weight": 2
+        },
+        {
+          "id": "no-fabrication",
+          "description": "Doesn't make up a schema",
+          "type": "not_regex",
+          "pattern": "(CREATE TABLE|id\\s+(INT|INTEGER|SERIAL|UUID)|VARCHAR|PRIMARY KEY|users.*\\()",
+          "required": true,
+          "weight": 3
+        }
+      ],
+      "tags": ["boundaries", "no-fabrication"]
+    }
+  ]
+}

@@ -239,30 +239,93 @@ Style constraints guide code formatting and conventions.
 #### Named Style Guide
 
 ```
-@acp:style <guide-name>
+@acp:style <guide-name> - <directive>
 ```
 
 #### With Custom Rules
 
 ```
-@acp:style <guide-name>
-@acp:style-rules <rule1>, <rule2>, ...
+@acp:style <guide-name> - <directive>
+@acp:style-rules <rule1>, <rule2>, ... - <directive>
+```
+
+#### With Style Inheritance (RFC-0002)
+
+```
+@acp:style <custom-guide> - <directive>
+@acp:style-extends <parent-guide> - <directive>
 ```
 
 ### 3.2 Built-in Style Guides
 
-| Guide Name | Description |
-|------------|-------------|
-| `google-typescript` | Google TypeScript style guide |
-| `google-javascript` | Google JavaScript style guide |
-| `google-python` | Google Python style guide |
-| `airbnb-javascript` | Airbnb JavaScript style guide |
-| `airbnb-react` | Airbnb React style guide |
-| `pep8` | Python PEP 8 |
-| `prettier` | Prettier defaults |
+The following style guide names are reserved and recognized by default:
 
-### 3.3 AI Behavior with Style
+| Guide Name          | Language   | Documentation URL                                            |
+|---------------------|------------|--------------------------------------------------------------|
+| `google-typescript` | TypeScript | https://google.github.io/styleguide/tsguide.html             |
+| `google-javascript` | JavaScript | https://google.github.io/styleguide/jsguide.html             |
+| `google-python`     | Python     | https://google.github.io/styleguide/pyguide.html             |
+| `google-java`       | Java       | https://google.github.io/styleguide/javaguide.html           |
+| `google-cpp`        | C++        | https://google.github.io/styleguide/cppguide.html            |
+| `google-go`         | Go         | https://go.dev/doc/effective_go                              |
+| `airbnb-javascript` | JavaScript | https://github.com/airbnb/javascript                         |
+| `airbnb-react`      | React      | https://github.com/airbnb/javascript/tree/master/react       |
+| `pep8`              | Python     | https://peps.python.org/pep-0008/                            |
+| `black`             | Python     | https://black.readthedocs.io/en/stable/the_black_code_style/ |
+| `prettier`          | Multi      | https://prettier.io/docs/en/options.html                     |
+| `rustfmt`           | Rust       | https://rust-lang.github.io/rustfmt/                         |
+| `standardjs`        | JavaScript | https://standardjs.com/rules.html                            |
+| `tailwindcss-v3`    | CSS        | https://v2.tailwindcss.com/docs                              |
 
+### 3.3 Custom Style Guides (RFC-0002)
+
+Custom style guides can be defined in `.acp.config.json`:
+
+```json
+{
+  "documentation": {
+    "styleGuides": {
+      "company-react": {
+        "extends": "airbnb-react",
+        "description": "Company React conventions",
+        "rules": ["prefer-function-components", "max-line-length=120"],
+        "filePatterns": ["src/components/**/*.tsx"]
+      }
+    }
+  }
+}
+```
+
+See [Config File Specification](config.md) Section 9 for complete style guide configuration.
+
+### 3.4 Style Inheritance (RFC-0002)
+
+The `@acp:style-extends` annotation specifies a parent style guide:
+
+```typescript
+/**
+ * @acp:style company-standard - Follow our company coding standards
+ * @acp:style-extends google-typescript - Based on Google TypeScript style
+ * @acp:style-rules max-line-length=120 - Override specific rules
+ */
+```
+
+**Inheritance rules:**
+- Rules from parent guide apply first
+- Child guide rules override parent rules
+- Explicit `@acp:style-rules` override both
+
+### 3.5 AI Behavior with Style
+
+| Style Setting | AI Behavior |
+|---------------|-------------|
+| `@acp:style <guide>` | MUST follow specified style for new code |
+| `@acp:style-extends <parent>` | MUST apply parent rules, then current rules |
+| `@acp:style-rules <rules>` | MUST apply specific rules |
+| No style specified | SHOULD follow surrounding code patterns |
+| Conflicting styles | Symbol-level takes precedence over file-level |
+
+**General Rules:**
 - MUST follow specified style guide for new code
 - SHOULD NOT reformat existing code unless asked
 - MUST maintain consistency with surrounding code
@@ -271,8 +334,8 @@ Style constraints guide code formatting and conventions.
 **Example:**
 ```javascript
 /**
- * @acp:style google-typescript
- * @acp:style-rules max-line-length=100, no-any
+ * @acp:style google-typescript - Follow Google TypeScript style guide
+ * @acp:style-rules max-line-length=100, no-any - Apply specific overrides
  */
 ```
 
@@ -490,13 +553,16 @@ export interface ApiResponse<T> {
 | Constraint | Values | Default |
 |------------|--------|---------|
 | `@acp:lock` | frozen, restricted, approval-required, tests-required, docs-required, normal, experimental | normal |
-| `@acp:style` | google-typescript, airbnb-javascript, prettier, pep8, etc. | (none) |
+| `@acp:style` | google-typescript, airbnb-javascript, prettier, pep8, custom, etc. | (none) |
+| `@acp:style-rules` | key or key=value pairs | (none) |
+| `@acp:style-extends` | parent style guide name (RFC-0002) | (none) |
 | `@acp:behavior` | conservative, balanced, aggressive | balanced |
 | `@acp:quality` | security-review, performance-test, manual-test, regression-test | (none) |
 
 **Merging Rules:**
 - Lock levels: Most restrictive wins
 - Style guides: Most specific guide + accumulated rules
+- Style extends: Parent rules first, child overrides
 - Behavior: Most specific wins
 - Quality: All requirements accumulate
 

@@ -129,11 +129,11 @@ The hierarchical annotation system enables a context-efficient workflow where th
 
 ### Context Savings
 
-| Approach | Tokens Used | Files Read |
-|----------|-------------|------------|
-| Read all files | ~50,000 | All |
-| Read relevant files | ~5,000 | 3-4 files |
-| ACP hierarchical queries | ~500 | Line ranges only |
+| Approach                 | Tokens Used   | Files Read       |
+|--------------------------|---------------|------------------|
+| Read all files           | ~50,000       | All              |
+| Read relevant files      | ~5,000        | 3-4 files        |
+| ACP hierarchical queries | ~500          | Line ranges only |
 
 ### Bootstrap Integration
 
@@ -194,41 +194,41 @@ The specification defines RECOMMENDED directive text for common annotations to e
 
 **File-Level Annotations:**
 
-| Annotation | Recommended Directive |
-|------------|----------------------|
-| `@acp:purpose <desc>` | `<desc>` (file/module purpose for quick reference) |
-| `@acp:domain <name>` | `Part of <name> domain/module` |
-| `@acp:lock frozen` | `MUST NOT modify this file under any circumstances` |
-| `@acp:lock restricted` | `Explain proposed changes and wait for explicit approval before modifying` |
-| `@acp:lock approval-required` | `Propose changes and request user confirmation before proceeding` |
-| `@acp:lock tests-required` | `All changes must include corresponding test updates` |
-| `@acp:lock normal` | `Safe to modify following project conventions` |
-| `@acp:ref <url>` | `Consult <url> before making changes to this code` |
-| `@acp:style <guide>` | `Follow <guide> style conventions for all changes` |
-| `@acp:owner <team>` | `Contact <team> for questions or significant changes` |
+| Annotation                    | Recommended Directive                                                      |
+|-------------------------------|----------------------------------------------------------------------------|
+| `@acp:purpose <desc>`         | `<desc>` (file/module purpose for quick reference)                         |
+| `@acp:domain <name>`          | `Part of <name> domain/module`                                             |
+| `@acp:lock frozen`            | `MUST NOT modify this file under any circumstances`                        |
+| `@acp:lock restricted`        | `Explain proposed changes and wait for explicit approval before modifying` |
+| `@acp:lock approval-required` | `Propose changes and request user confirmation before proceeding`          |
+| `@acp:lock tests-required`    | `All changes must include corresponding test updates`                      |
+| `@acp:lock normal`            | `Safe to modify following project conventions`                             |
+| `@acp:ref <url>`              | `Consult <url> before making changes to this code`                         |
+| `@acp:style <guide>`          | `Follow <guide> style conventions for all changes`                         |
+| `@acp:owner <team>`           | `Contact <team> for questions or significant changes`                      |
 
 **Symbol-Level Annotations:**
 
-| Annotation | Recommended Directive |
-|------------|----------------------|
-| `@acp:fn <name>` | `<description of what function does>` |
-| `@acp:class <name>` | `<description of class purpose>` |
-| `@acp:method <name>` | `<description of method behavior>` |
-| `@acp:param <name>` | `<description of parameter>` |
-| `@acp:returns` | `<description of return value>` |
-| `@acp:throws` | `<description of exceptions>` |
-| `@acp:example` | `<usage example>` |
+| Annotation           | Recommended Directive                 |
+|----------------------|---------------------------------------|
+| `@acp:fn <name>`     | `<description of what function does>` |
+| `@acp:class <name>`  | `<description of class purpose>`      |
+| `@acp:method <name>` | `<description of method behavior>`    |
+| `@acp:param <name>`  | `<description of parameter>`          |
+| `@acp:returns`       | `<description of return value>`       |
+| `@acp:throws`        | `<description of exceptions>`         |
+| `@acp:example`       | `<usage example>`                     |
 
 **Inline Annotations:**
 
-| Annotation | Recommended Directive |
-|------------|----------------------|
-| `@acp:hack` | `Temporary workaround - check @acp:hack-expires before modifying or removing` |
-| `@acp:todo` | `<description of pending work>` |
-| `@acp:fixme` | `<description of known issue needing fix>` |
-| `@acp:critical` | `<description> - Security/stability critical, exercise extreme caution` |
-| `@acp:deprecated` | `Do not use or extend - see @acp:deprecated-use for replacement` |
-| `@acp:perf` | `<performance consideration or optimization note>` |
+| Annotation        | Recommended Directive                                                         |
+|-------------------|-------------------------------------------------------------------------------|
+| `@acp:hack`       | `Temporary workaround - check @acp:hack-expires before modifying or removing` |
+| `@acp:todo`       | `<description of pending work>`                                               |
+| `@acp:fixme`      | `<description of known issue needing fix>`                                    |
+| `@acp:critical`   | `<description> - Security/stability critical, exercise extreme caution`       |
+| `@acp:deprecated` | `Do not use or extend - see @acp:deprecated-use for replacement`              |
+| `@acp:perf`       | `<performance consideration or optimization note>`                            |
 
 Projects MAY customize directive text while preserving the semantic intent.
 
@@ -269,14 +269,14 @@ Help: acp knowledge "question"
 
 #### 2.2 Bootstrap Components
 
-| Component | Purpose | Required |
-|-----------|---------|----------|
-| Identity | "This project uses ACP" | Yes |
-| Directive Frame | "@acp:* comments are directives for you" | Yes |
-| Constraint Check | "BEFORE editing: acp constraints" | Yes |
-| Exploration | "acp query" command | Recommended |
-| Mapping | "acp map" for codebase overview | Recommended |
-| Self-Help | "acp knowledge" command | Recommended |
+| Component        | Purpose                                  | Required    |
+|------------------|------------------------------------------|-------------|
+| Identity         | "This project uses ACP"                  | Yes         |
+| Directive Frame  | "@acp:* comments are directives for you" | Yes         |
+| Constraint Check | "BEFORE editing: acp constraints"        | Yes         |
+| Exploration      | "acp query" command                      | Recommended |
+| Mapping          | "acp map" for codebase overview          | Recommended |
+| Self-Help        | "acp knowledge" command                  | Recommended |
 
 #### 2.3 Extended Bootstrap (Optional)
 
@@ -409,11 +409,11 @@ Annotations exist at multiple levels, each providing context for the AI without 
 
 #### 5.1 Annotation Levels
 
-| Level | Scope | Purpose |
-|-------|-------|---------|
-| File | Entire file | Overall constraints, ownership, domain |
-| Symbol | Function/class/const | Purpose, specific constraints |
-| Inline | Single line/block | Hacks, todos, warnings |
+| Level   | Scope                | Purpose                                |
+|---------|----------------------|----------------------------------------|
+| File    | Entire file          | Overall constraints, ownership, domain |
+| Symbol  | Function/class/const | Purpose, specific constraints          |
+| Inline  | Single line/block    | Hacks, todos, warnings                 |
 
 #### 5.2 File-Level Annotations
 

@@ -3,9 +3,11 @@
 - **RFC ID**: 0004
 - **Title**: Tiered Interface Primers
 - **Author**: ACP Protocol Team
-- **Status**: Accepted
+- **Status**: Implemented
 - **Created**: 2025-12-22
-- **Updated**: 2025-12-22
+- **Updated**: 2025-12-25
+- **Implemented**: 2025-12-25
+- **Release**: 0.6.0
 - **Discussion**: [Pending GitHub Discussion]
 - **Supersedes**: Portions of Chapter 11 (Tool Integration) primer system
 
@@ -701,10 +703,38 @@ Allow budget allocation per command rather than global tiers.
 
 ---
 
+## Implementation Notes
+
+Implemented in version 0.6.0 on 2025-12-25.
+
+### Changes from Original Proposal
+
+1. **Tier thresholds adjusted**: Minimal <80 (was <100), Standard 80-299 (was 100-350), Full 300+ (was 350+)
+2. **v1 versioning maintained**: Schema remains in v1 directory per user request (pre-release)
+3. **Backward compatibility**: Made `sections` optional to support existing primer files
+4. **Commands simplified**: 8 shell commands with tiered content (MCP/daemon deferred)
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `schemas/v1/primer.schema.json` | Added tiered structure definitions |
+| `src/commands/primer.rs` | New primer command implementation |
+| `src/commands/mod.rs` | Export primer module |
+| `src/main.rs` | Add Primer CLI command |
+
+### Test Coverage
+
+- 5 unit tests in `primer.rs`
+- 2 schema validation tests
+- 7 integration tests (CLI)
+- All 296 existing tests pass (no regression)
+
 ## Changelog
 
 | Date       | Change        |
 |------------|---------------|
+| 2025-12-25 | Implemented |
 | 2025-12-22 | Initial draft |
 
 ---

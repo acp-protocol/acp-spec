@@ -2079,15 +2079,32 @@ All annotations use the `@acp:` prefix followed by a namespace.
 
 **Default:** Files and symbols without explicit `@acp:lock` default to `normal`.
 
-#### @acp:style
+#### @acp:style (RFC-0002)
 
 **Scope:** File or symbol level
 **Purpose:** Style/format constraints
 
-| Annotation         | Parameters   | Example                                        | Description                          |
-|--------------------|--------------|------------------------------------------------|--------------------------------------|
-| `@acp:style`       | `<guide>`    | `@acp:style google-typescript`                 | Style guide reference                |
-| `@acp:style-rules` | `<rules>`    | `@acp:style-rules max-line-length=100, no-any` | Custom style rules (comma-separated) |
+| Annotation           | Parameters   | Example                                        | Description                          |
+|----------------------|--------------|------------------------------------------------|--------------------------------------|
+| `@acp:style`         | `<guide>`    | `@acp:style google-typescript`                 | Style guide reference                |
+| `@acp:style-rules`   | `<rules>`    | `@acp:style-rules max-line-length=100, no-any` | Custom style rules (comma-separated) |
+| `@acp:style-extends` | `<guide>`    | `@acp:style-extends google-typescript`         | Parent style guide (RFC-0002)        |
+
+**Style Guide Resolution (RFC-0002):** Style guides can be:
+1. **Built-in guides** - Standard guides like `google-typescript`, `airbnb`, `pep8`
+2. **Custom guides** - Defined in `documentation.styleGuides` in `.acp.config.json`
+3. **Source-linked guides** - Guides with associated documentation sources
+
+See [Chapter 4: Configuration Format](#4-configuration-format) for custom style guide configuration and [Chapter 5: Annotations](#5-annotations) for the built-in style guide registry.
+
+**Example with style inheritance:**
+```typescript
+/**
+ * @acp:style company-standard
+ * @acp:style-extends google-typescript
+ * @acp:style-rules max-line-length=120
+ */
+```
 
 #### @acp:behavior
 
@@ -2166,15 +2183,31 @@ The following annotations were added in v1.1 per RFC-001.
 |--------------|--------------|---------------------------------------------------------------------------|
 | `@acp:owner` | `<team>`     | `@acp:owner security-team - Contact for questions or significant changes` |
 
-#### @acp:ref (RFC-001)
+#### @acp:ref (RFC-001, RFC-0002)
 
-**Scope:** File level
+**Scope:** File or symbol level
 **Purpose:** Reference documentation
 **Directive:** SHOULD describe when to consult
 
-| Annotation   | Parameters   | Example                                                                  |
-|--------------|--------------|--------------------------------------------------------------------------|
-| `@acp:ref`   | `<url>`      | `@acp:ref https://docs.example.com/auth - Consult before making changes` |
+| Annotation         | Parameters     | Example                                                                   | Description                               |
+|--------------------|----------------|---------------------------------------------------------------------------|-------------------------------------------|
+| `@acp:ref`         | `<url\|source>` | `@acp:ref https://docs.example.com/auth - Consult before making changes` | Documentation reference (URL or source ID)|
+| `@acp:ref`         | `<source>`     | `@acp:ref react:hooks - Consult for hooks patterns`                      | Reference using approved source ID        |
+| `@acp:ref-version` | `<version>`    | `@acp:ref-version 18.2`                                                  | Documentation version (RFC-0002)          |
+| `@acp:ref-section` | `<section>`    | `@acp:ref-section hooks/custom-hooks`                                    | Section within documentation (RFC-0002)   |
+| `@acp:ref-fetch`   | `[true\|false]` | `@acp:ref-fetch true`                                                    | Whether AI should fetch reference (RFC-0002)|
+
+**Source ID Resolution (RFC-0002):** When using a source ID (e.g., `react:hooks`), the tool resolves against `documentation.approvedSources` in `.acp.config.json`. See [Chapter 4: Configuration Format](#4-configuration-format) for approved source configuration.
+
+**Example with approved source:**
+```typescript
+/**
+ * @acp:ref react:hooks - Follow React hooks patterns
+ * @acp:ref-version 18.2
+ * @acp:ref-section hooks/rules-of-hooks
+ * @acp:ref-fetch true
+ */
+```
 
 #### @acp:fn (RFC-001)
 
@@ -2285,6 +2318,79 @@ The following annotations were added in v1.1 per RFC-001.
 | Annotation  | Parameters  | Example                                                                  |
 |-------------|-------------|--------------------------------------------------------------------------|
 | `@acp:perf` | none        | `@acp:perf - O(n²) complexity, consider optimization for large datasets` |
+
+### RFC-0003 Annotations
+
+<!-- ADDED: v0.5 - RFC-0003 Annotation Provenance Tracking -->
+
+The following annotations were added per RFC-0003 for tracking annotation provenance.
+
+#### @acp:source (RFC-0003)
+
+**Scope:** Following annotation block
+**Purpose:** Annotation origin marker
+**Directive:** Identifies how an annotation was created
+
+| Annotation               | Parameters   | Example                          | Description                              |
+|--------------------------|--------------|----------------------------------|------------------------------------------|
+| `@acp:source`            | `<origin>`   | `@acp:source heuristic`          | Origin of preceding annotation(s)        |
+| `@acp:source-confidence` | `<0.0-1.0>`  | `@acp:source-confidence 0.85`    | Confidence score for auto-generated      |
+| `@acp:source-reviewed`   | `<boolean>`  | `@acp:source-reviewed true`      | Whether human has reviewed               |
+| `@acp:source-id`         | `<id>`       | `@acp:source-id gen-20251222-01` | Generation batch identifier              |
+
+**Source Origin Values:**
+
+| Origin     | Description                                    | Usage                              |
+|------------|------------------------------------------------|------------------------------------|
+| `explicit` | Human-written (default if no `@acp:source`)    | Manual annotation                  |
+| `converted`| Converted from JSDoc/docstring/etc.            | `acp annotate --convert`           |
+| `heuristic`| Generated by naming/path/visibility heuristics | `acp annotate`                     |
+| `refined`  | AI-improved from previous auto-generation      | `acp review --refine`              |
+| `inferred` | Inferred from code analysis (future)           | Reserved for future use            |
+
+**Example - Single annotation with provenance:**
+```javascript
+/**
+ * @acp:summary "Validates user authentication tokens"
+ * @acp:source heuristic
+ * @acp:source-confidence 0.85
+ */
+function validateToken(token) { ... }
+```
+
+**Example - Multiple annotations, single provenance block:**
+```javascript
+/**
+ * @acp:summary "Payment processing service"
+ * @acp:domain billing
+ * @acp:lock restricted
+ * @acp:source heuristic
+ * @acp:source-confidence 0.72
+ */
+```
+
+**Example - Refined annotation:**
+```javascript
+/**
+ * @acp:summary "Securely validates JWT tokens with RS256 signature verification"
+ * @acp:source refined
+ * @acp:source-reviewed true
+ */
+```
+
+**Grepability:** Provenance markers are designed to be easily searchable:
+```bash
+# Find all heuristic-generated annotations
+grep -r "@acp:source heuristic" src/
+
+# Find low-confidence annotations
+grep -r "@acp:source-confidence 0\.[0-6]" src/
+
+# Find reviewed annotations
+grep -r "@acp:source-reviewed true" src/
+```
+
+See [Chapter 5: Annotations](#5-annotations) for detailed provenance tracking documentation.
 
 ### Extension Annotations
 

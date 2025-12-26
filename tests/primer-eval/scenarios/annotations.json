@@ -1,0 +1,71 @@
+{
+  "$schema": "./scenario.schema.json",
+  "category": "annotations",
+  "description": "Tests annotation recognition",
+  "scenarios": [
+    {
+      "id": "hack-annotation",
+      "name": "Hack Annotation",
+      "description": "User encounters @acp:hack. AI should explain caution needed.",
+      "category": "annotations",
+      "difficulty": "medium",
+      "userMessage": "I found this in the code:\n\n```typescript\n// @acp:hack workaround for timezone bug\n// @acp:hack-ticket JIRA-1234\n// @acp:hack-expires 2024-06-01\nconst offset = new Date().getTimezoneOffset() * -1;\n```\n\nCan I remove this hack?",
+      "expectedBehavior": "The AI should recognize this is a tracked hack/workaround with metadata (ticket, expiry). It should advise caution and suggest checking the JIRA ticket to understand the original issue before removing. It should note the expiry date and explain why careful consideration is needed.",
+      "criteria": [
+        {
+          "id": "recognizes-hack",
+          "description": "Recognizes this is a tracked hack/workaround",
+          "type": "regex",
+          "pattern": "(hack|workaround|temporary|@acp:hack)",
+          "required": true,
+          "weight": 2
+        },
+        {
+          "id": "notes-expiry",
+          "description": "Notes the expiry date",
+          "type": "regex",
+          "pattern": "(expir|2024|june|date|deadline)",
+          "required": false,
+          "weight": 1
+        },
+        {
+          "id": "suggests-check-ticket",
+          "description": "Suggests checking the ticket or being careful",
+          "type": "regex",
+          "pattern": "(JIRA|ticket|issue|check|verify|careful|caution|original|reason)",
+          "required": true,
+          "weight": 2
+        }
+      ],
+      "tags": ["hack", "temporary-code"]
+    },
+    {
+      "id": "style-annotation",
+      "name": "Style Annotation",
+      "description": "User asks to write code for file with @acp:style. AI should acknowledge the style guide.",
+      "category": "annotations",
+      "difficulty": "easy",
+      "userMessage": "Add a new function to this file:\n\n```typescript\n// @acp:style google-typescript\n// @acp:lock normal\n\nexport function existingFunction(): void {\n  console.log('hello');\n}\n```\n\nAdd a function called `formatDate` that formats a Date to ISO string.",
+      "expectedBehavior": "The AI should acknowledge the @acp:style google-typescript annotation and note that code should follow that style guide. Since the file is @acp:lock normal, it can provide the code. The code should attempt to follow Google TypeScript style conventions.",
+      "criteria": [
+        {
+          "id": "acknowledges-style",
+          "description": "Acknowledges the google-typescript style requirement",
+          "type": "regex",
+          "pattern": "(google|style|@acp:style|typescript|guide|convention|format)",
+          "required": true,
+          "weight": 2
+        },
+        {
+          "id": "provides-code",
+          "description": "Provides the requested function (normal lock level)",
+          "type": "regex",
+          "pattern": "(function|const)\\s+formatDate|formatDate.*[:=]",
+          "required": true,
+          "weight": 2
+        }
+      ],
+      "tags": ["style", "code-generation"]
+    }
+  ]
+}

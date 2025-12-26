@@ -83,28 +83,28 @@ acp stats --annotations
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Source Code                                  │
+│                     Source Code                                 │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │ /**                                                       │  │
-│  │  * @acp:summary "Validates user session tokens"          │  │
-│  │  * @acp:source heuristic                                 │  │
-│  │  * @acp:source-confidence 0.85                           │  │
+│  │  * @acp:summary "Validates user session tokens"           │  │
+│  │  * @acp:source heuristic                                  │  │
+│  │  * @acp:source-confidence 0.85                            │  │
 │  │  */                                                       │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     .acp.cache.json                              │
+│                     .acp.cache.json                             │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │ "annotations": {                                          │  │
-│  │   "src/auth.ts:validateSession": {                       │  │
+│  │   "src/auth.ts:validateSession": {                        │  │
 │  │     "summary": {                                          │  │
-│  │       "value": "Validates user session tokens",          │  │
-│  │       "source": "heuristic",                             │  │
-│  │       "confidence": 0.85,                                │  │
-│  │       "needsReview": true,                               │  │
-│  │       "generatedAt": "2025-12-20T10:30:00Z"             │  │
+│  │       "value": "Validates user session tokens",           │  │
+│  │       "source": "heuristic",                              │  │
+│  │       "confidence": 0.85,                                 │  │
+│  │       "needsReview": true,                                │  │
+│  │       "generatedAt": "2025-12-20T10:30:00Z"               │  │
 │  │     }                                                     │  │
 │  │   }                                                       │  │
 │  │ }                                                         │  │
@@ -113,10 +113,10 @@ acp stats --annotations
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     CLI Queries                                  │
+│                     CLI Queries                                 │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │ $ acp query --source heuristic --confidence "<0.8"       │  │
-│  │ $ acp annotate --refine --source heuristic               │  │
+│  │ $ acp query --source heuristic --confidence "<0.8"        │  │
+│  │ $ acp annotate --refine --source heuristic                │  │
 │  │ $ acp stats --provenance                                  │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
@@ -131,22 +131,22 @@ acp stats --annotations
 **Scope:** Immediately follows the annotation it describes  
 **Purpose:** Identify origin of an annotation
 
-| Annotation | Parameters | Example | Description |
-|------------|-----------|---------|-------------|
-| `@acp:source` | `<origin>` | `@acp:source heuristic` | Origin of preceding annotation(s) |
-| `@acp:source-confidence` | `<0.0-1.0>` | `@acp:source-confidence 0.85` | Confidence score |
-| `@acp:source-reviewed` | `<boolean>` | `@acp:source-reviewed true` | Human review status |
-| `@acp:source-id` | `<uuid>` | `@acp:source-id abc123` | Unique generation ID |
+| Annotation               | Parameters   | Example                       | Description                       |
+|--------------------------|--------------|-------------------------------|-----------------------------------|
+| `@acp:source`            | `<origin>`   | `@acp:source heuristic`       | Origin of preceding annotation(s) |
+| `@acp:source-confidence` | `<0.0-1.0>`  | `@acp:source-confidence 0.85` | Confidence score                  |
+| `@acp:source-reviewed`   | `<boolean>`  | `@acp:source-reviewed true`   | Human review status               |
+| `@acp:source-id`         | `<uuid>`     | `@acp:source-id abc123`       | Unique generation ID              |
 
 #### 1.2 Source Origin Values
 
-| Origin | Description | Grepable Pattern |
-|--------|-------------|------------------|
-| `explicit` | Human-written (default if no `@acp:source`) | `@acp:source explicit` |
-| `converted` | Converted from JSDoc/docstring/etc. | `@acp:source converted` |
+| Origin      | Description                                    | Grepable Pattern        |
+|-------------|------------------------------------------------|-------------------------|
+| `explicit`  | Human-written (default if no `@acp:source`)    | `@acp:source explicit`  |
+| `converted` | Converted from JSDoc/docstring/etc.            | `@acp:source converted` |
 | `heuristic` | Generated by naming/path/visibility heuristics | `@acp:source heuristic` |
-| `refined` | AI-improved from previous auto-generation | `@acp:source refined` |
-| `inferred` | Inferred from code analysis (future) | `@acp:source inferred` |
+| `refined`   | AI-improved from previous auto-generation      | `@acp:source refined`   |
+| `inferred`  | Inferred from code analysis (future)           | `@acp:source inferred`  |
 
 #### 1.3 Syntax Examples
 
@@ -445,24 +445,24 @@ acp stats --provenance
 
 # Example output:
 ╭──────────────────────────────────────────────────────────╮
-│              Annotation Provenance Statistics             │
+│              Annotation Provenance Statistics            │
 ├──────────────────────────────────────────────────────────┤
-│ Total Annotations: 847                                    │
-│                                                           │
-│ By Source:                                                │
+│ Total Annotations: 847                                   │
+│                                                          │
+│ By Source:                                               │
 │   ├─ Explicit (human):     523  (61.7%)  ████████████░░  │
 │   ├─ Converted (docs):     198  (23.4%)  █████░░░░░░░░░  │
 │   ├─ Heuristic (auto):      89  (10.5%)  ██░░░░░░░░░░░░  │
 │   └─ Refined (improved):    37  ( 4.4%)  █░░░░░░░░░░░░░  │
-│                                                           │
-│ Review Status:                                            │
-│   ├─ Needs review:          52                            │
-│   └─ Reviewed:              74                            │
-│                                                           │
-│ Confidence (auto-generated):                              │
-│   ├─ Converted avg:        0.91                           │
-│   ├─ Heuristic avg:        0.73                           │
-│   └─ Below 0.7:            23 annotations                 │
+│                                                          │
+│ Review Status:                                           │
+│   ├─ Needs review:          52                           │
+│   └─ Reviewed:              74                           │
+│                                                          │
+│ Confidence (auto-generated):                             │
+│   ├─ Converted avg:        0.91                          │
+│   ├─ Heuristic avg:        0.73                          │
+│   └─ Below 0.7:            23 annotations                │
 ╰──────────────────────────────────────────────────────────╯
 ```
 
@@ -822,12 +822,12 @@ You can improve heuristic annotations by:
 
 ### 7. Error Handling
 
-| Error Condition | Permissive Mode | Strict Mode |
-|-----------------|-----------------|-------------|
-| Invalid source value | Warn, default to `explicit` | Error, abort |
-| Confidence out of range | Warn, clamp to 0.0-1.0 | Error, abort |
-| Missing value for provenance | Warn, skip provenance | Error, abort |
-| Conflicting provenance markers | Warn, use last | Error, abort |
+| Error Condition                | Permissive Mode             | Strict Mode  |
+|--------------------------------|-----------------------------|--------------|
+| Invalid source value           | Warn, default to `explicit` | Error, abort |
+| Confidence out of range        | Warn, clamp to 0.0-1.0      | Error, abort |
+| Missing value for provenance   | Warn, skip provenance       | Error, abort |
+| Conflicting provenance markers | Warn, use last              | Error, abort |
 
 ---
 
@@ -906,35 +906,35 @@ Only track provenance in cache, not in source.
 
 ### Specification Changes
 
-| Document | Changes |
-|----------|---------|
-| `ACP-1.0.md` Appendix A | Add `@acp:source`, `@acp:source-confidence`, `@acp:source-reviewed`, `@acp:source-id` |
-| `spec/chapters/05-annotations.md` | Add Section 6: Annotation Provenance |
+| Document                          | Changes                                                                               |
+|-----------------------------------|---------------------------------------------------------------------------------------|
+| `ACP-1.0.md` Appendix A           | Add `@acp:source`, `@acp:source-confidence`, `@acp:source-reviewed`, `@acp:source-id` |
+| `spec/chapters/05-annotations.md` | Add Section 6: Annotation Provenance                                                  |
 
 ### Schema Changes
 
-| Schema | Changes |
-|--------|---------|
-| `cache.schema.json` | Add `annotation_provenance` def, `annotations` to file/symbol entries, `provenance` top-level |
-| `config.schema.json` | Add `annotate.provenance` settings |
+| Schema               | Changes                                                                                       |
+|----------------------|-----------------------------------------------------------------------------------------------|
+| `cache.schema.json`  | Add `annotation_provenance` def, `annotations` to file/symbol entries, `provenance` top-level |
+| `config.schema.json` | Add `annotate.provenance` settings                                                            |
 
 ### CLI Changes
 
-| Command | Changes |
-|---------|---------|
-| `acp annotate` | Add `--no-provenance`, `--min-confidence`, `--needs-review` flags |
-| `acp query` | Add `--source`, `--confidence`, `--needs-review` filters |
-| `acp stats` | Add `--provenance` flag |
-| `acp review` (new) | Interactive review command |
+| Command            | Changes                                                           |
+|--------------------|-------------------------------------------------------------------|
+| `acp annotate`     | Add `--no-provenance`, `--min-confidence`, `--needs-review` flags |
+| `acp query`        | Add `--source`, `--confidence`, `--needs-review` filters          |
+| `acp stats`        | Add `--provenance` flag                                           |
+| `acp review` (new) | Interactive review command                                        |
 
 ### Code Changes
 
-| File | Changes |
-|------|---------|
-| `cli/src/annotate/mod.rs` | Add provenance generation to output |
-| `cli/src/annotate/writer.rs` | Write `@acp:source` markers |
-| `cli/src/cache/types.rs` | Add `AnnotationProvenance` struct |
-| `cli/src/commands/review.rs` (new) | Interactive review command |
+| File                               | Changes                             |
+|------------------------------------|-------------------------------------|
+| `cli/src/annotate/mod.rs`          | Add provenance generation to output |
+| `cli/src/annotate/writer.rs`       | Write `@acp:source` markers         |
+| `cli/src/cache/types.rs`           | Add `AnnotationProvenance` struct   |
+| `cli/src/commands/review.rs` (new) | Interactive review command          |
 
 ---
 
@@ -995,34 +995,34 @@ Only track provenance in cache, not in source.
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│              Annotation Provenance Quick Reference          │
+│              Annotation Provenance Quick Reference         │
 ├────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ANNOTATIONS:                                               │
-│    @acp:source <origin>           Origin of annotation      │
-│    @acp:source-confidence <0-1>   Confidence score          │
-│    @acp:source-reviewed <bool>    Review status             │
-│    @acp:source-id <uuid>          Generation batch ID       │
-│                                                             │
-│  ORIGINS:                                                   │
-│    explicit    Human-written (default)                      │
-│    converted   From JSDoc/docstring                         │
-│    heuristic   Auto-generated from patterns                 │
-│    refined     AI-improved                                  │
-│    inferred    Code analysis (future)                       │
-│                                                             │
-│  CLI:                                                       │
-│    acp annotate                   Generate with provenance  │
-│    acp query --source heuristic   Find auto-generated       │
-│    acp query --confidence "<0.7"  Find low-confidence       │
-│    acp query --needs-review       Find needing review       │
-│    acp stats --provenance         Show statistics           │
-│    acp review                     Interactive review        │
-│                                                             │
-│  GREP:                                                      │
-│    grep -r "@acp:source heuristic" src/                     │
-│    grep -r "@acp:source-confidence 0\.[0-6]" src/           │
-│                                                             │
+│                                                            │
+│  ANNOTATIONS:                                              │
+│    @acp:source <origin>           Origin of annotation     │
+│    @acp:source-confidence <0-1>   Confidence score         │
+│    @acp:source-reviewed <bool>    Review status            │
+│    @acp:source-id <uuid>          Generation batch ID      │
+│                                                            │
+│  ORIGINS:                                                  │
+│    explicit    Human-written (default)                     │
+│    converted   From JSDoc/docstring                        │
+│    heuristic   Auto-generated from patterns                │
+│    refined     AI-improved                                 │
+│    inferred    Code analysis (future)                      │
+│                                                            │
+│  CLI:                                                      │
+│    acp annotate                   Generate with provenance │
+│    acp query --source heuristic   Find auto-generated      │
+│    acp query --confidence "<0.7"  Find low-confidence      │
+│    acp query --needs-review       Find needing review      │
+│    acp stats --provenance         Show statistics          │
+│    acp review                     Interactive review       │
+│                                                            │
+│  GREP:                                                     │
+│    grep -r "@acp:source heuristic" src/                    │
+│    grep -r "@acp:source-confidence 0\.[0-6]" src/          │
+│                                                            │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -1038,8 +1038,8 @@ This RFC complements RFC-0010 (Documentation References and Style Guides). When 
 
 ## Changelog
 
-| Date | Change |
-|------|--------|
+| Date       | Change        |
+|------------|---------------|
 | 2025-12-20 | Initial draft |
 
 ---

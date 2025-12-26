@@ -1065,22 +1065,22 @@ Annotations needing review: 12
 
 ### B. Estimated Effort
 
-| Phase | Tasks | Estimated Time |
-|-------|-------|----------------|
-| Phase 1: Core Types | Parser + Types | 4 hours |
-| Phase 2: Indexer | Integration | 3 hours |
-| Phase 3: Annotate | Command Extension | 3 hours |
-| Phase 4: Query | Filters + Stats | 2 hours |
-| Phase 5: Review | New Command | 4 hours |
-| Phase 6: Testing | Unit + Integration | 3 hours |
-| **Total** | **6 phases** | **~19 hours** |
+| Phase               | Tasks              | Estimated Time   |
+|---------------------|--------------------|------------------|
+| Phase 1: Core Types | Parser + Types     | 4 hours          |
+| Phase 2: Indexer    | Integration        | 3 hours          |
+| Phase 3: Annotate   | Command Extension  | 3 hours          |
+| Phase 4: Query      | Filters + Stats    | 2 hours          |
+| Phase 5: Review     | New Command        | 4 hours          |
+| Phase 6: Testing    | Unit + Integration | 3 hours          |
+| **Total**           | **6 phases**       | **~19 hours**    |
 
 ---
 
 ## Changelog
 
-| Date | Change |
-|------|--------|
+| Date       | Change        |
+|------------|---------------|
 | 2025-12-22 | Initial draft |
 
 ---

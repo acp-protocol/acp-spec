@@ -17,10 +17,10 @@ All changes to the specification must go through the RFC process:
 1. **Check existing RFCs** - Your idea may already be proposed
 2. **Open a discussion** - Gauge interest before writing
 3. **Write the RFC** - Use the template in `rfcs/TEMPLATE.md`
-4. **Submit PR** - To `rfcs/proposed/`
+4. **Submit PR** - To `rfcs/` with status "Draft" in the header
 5. **Address feedback** - Iterate based on review
 6. **Final Comment Period** - 10 days for last feedback
-7. **Merge** - If accepted, moves to `rfcs/accepted/`
+7. **Merge** - Update status in RFC header to "Accepted" or "Implemented"
 
 ### 3. Reference CLI
 

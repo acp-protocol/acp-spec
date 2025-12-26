@@ -6,7 +6,7 @@
 - **RFC ID**: XXXX
 - **Title**: [Descriptive title]
 - **Author**: [Name] <[email]>
-- **Status**: Draft
+- **Status**: [Draft|Accepted|Rejected|Proposed|Implemented]
 - **Created**: YYYY-MM-DD
 - **Updated**: YYYY-MM-DD
 - **Discussion**: [Link to GitHub discussion, if any]
@@ -101,10 +101,10 @@ value          = quoted_string | identifier ;
 
 [How should errors be handled?]
 
-| Error Condition | Permissive Mode | Strict Mode |
-|-----------------|-----------------|-------------|
-| Invalid value | Warn, use default | Error, abort |
-| ... | ... | ... |
+| Error Condition  | Permissive Mode   | Strict Mode  |
+|------------------|-------------------|--------------|
+| Invalid value    | Warn, use default | Error, abort |
+| ...              | ...               | ...          |
 
 ### Examples
 
@@ -242,11 +242,11 @@ class MyClass {
 
 [How does this affect other tools?]
 
-| Tool | Impact | Required Changes |
-|------|--------|------------------|
-| VS Code Extension | Low/Medium/High | Description |
-| Language Server | Low/Medium/High | Description |
-| Third-party tools | Low/Medium/High | Description |
+| Tool              | Impact          | Required Changes  |
+|-------------------|-----------------|-------------------|
+| VS Code Extension | Low/Medium/High | Description       |
+| Language Server   | Low/Medium/High | Description       |
+| Third-party tools | Low/Medium/High | Description       |
 
 ## Rollout Plan
 
@@ -305,10 +305,10 @@ class MyClass {
 
 [Track significant changes to this RFC during review.]
 
-| Date | Change |
-|------|--------|
-| YYYY-MM-DD | Initial draft |
-| YYYY-MM-DD | Addressed feedback on X |
+| Date       | Change                             |
+|------------|------------------------------------|
+| YYYY-MM-DD | Initial draft                      |
+| YYYY-MM-DD | Addressed feedback on X            |
 | YYYY-MM-DD | Revised syntax based on discussion |
 
 ---

@@ -1,9 +1,9 @@
 # Annotation Syntax Specification
 
 **ACP Version**: 1.0.0
-**Document Version**: 1.1.0
-**Last Updated**: 2025-12-21
-**Status**: RFC-001 Compliant
+**Document Version**: 1.2.0
+**Last Updated**: 2025-12-22
+**Status**: RFC-001, RFC-0003 Compliant
 
 ---
 
@@ -19,6 +19,7 @@
 8. [Annotation Parsing](#8-annotation-parsing)
 9. [Error Handling](#9-error-handling)
 10. [Examples](#10-examples)
+11. [Annotation Provenance (RFC-0003)](#11-annotation-provenance-rfc-0003)
 
 ---
 
@@ -504,6 +505,9 @@ The following namespaces are reserved by ACP and MUST NOT be used for custom ann
 | `layer` | Architectural layer | This document |
 | `stability` | API stability level | This document |
 | `ref` | Reference documentation | This document |
+| `ref-version` | Documentation version (RFC-0002) | This document |
+| `ref-section` | Documentation section (RFC-0002) | This document |
+| `ref-fetch` | Fetch directive (RFC-0002) | This document |
 
 #### Symbol-Level Namespaces
 
@@ -526,6 +530,7 @@ The following namespaces are reserved by ACP and MUST NOT be used for custom ann
 | `lock-reason` | Justification for lock (structured) | [constraints.md](constraints.md) |
 | `style` | Style guide reference | [constraints.md](constraints.md) |
 | `style-rules` | Custom style rules | [constraints.md](constraints.md) |
+| `style-extends` | Parent style guide (RFC-0002) | [constraints.md](constraints.md) |
 | `behavior` | AI behavior guidance | [constraints.md](constraints.md) |
 | `quality` | Quality requirements | [constraints.md](constraints.md) |
 | `test` | Testing requirements | [constraints.md](constraints.md) |
@@ -542,6 +547,15 @@ The following namespaces are reserved by ACP and MUST NOT be used for custom ann
 | `hack-ticket` | Related issue ticket | [debug-sessions.md](debug-sessions.md) |
 | `hack-expires` | Expiration date | [debug-sessions.md](debug-sessions.md) |
 | `debug` | Debug session tracking | [debug-sessions.md](debug-sessions.md) |
+
+#### Provenance Namespaces (RFC-0003)
+
+| Namespace | Purpose | Document |
+|-----------|---------|----------|
+| `source` | Annotation origin marker | This document |
+| `source-confidence` | Confidence score (0.0-1.0) | This document |
+| `source-reviewed` | Human review status | This document |
+| `source-id` | Generation batch identifier | This document |
 
 ### 6.2 Extension Namespaces
 
@@ -718,11 +732,11 @@ Stability indicator for the module.
 
 #### `@acp:ref`
 
-**NEW in RFC-001.** Reference to external documentation.
+**NEW in RFC-001, EXTENDED in RFC-0002.** Reference to external documentation.
 
-**Syntax**: `@acp:ref <url> - <directive>`
+**Syntax**: `@acp:ref <url|source> - <directive>`
 
-**Example**:
+**Example with URL**:
 ```typescript
 /**
  * @acp:ref https://docs.example.com/auth - Consult this documentation
@@ -730,10 +744,81 @@ Stability indicator for the module.
  */
 ```
 
+**Example with approved source (RFC-0002)**:
+```typescript
+/**
+ * @acp:ref react:hooks - Follow React hooks patterns when implementing
+ */
+```
+
 **Behavior**:
 - Links to external documentation
 - AI SHOULD consult referenced docs for context
 - Multiple refs allowed
+- Source IDs (RFC-0002) resolve against `documentation.approvedSources` in config
+
+---
+
+#### `@acp:ref-version`
+
+**NEW in RFC-0002.** Specifies documentation version.
+
+**Syntax**: `@acp:ref-version <version> - <directive>`
+
+**Example**:
+```typescript
+/**
+ * @acp:ref react:hooks - Follow React hooks patterns
+ * @acp:ref-version 18.2 - Use React 18.2 documentation specifically
+ */
+```
+
+**Behavior**:
+- Associates a version with the preceding `@acp:ref`
+- Version format is flexible (semver, date, custom)
+- AI SHOULD use this version when fetching documentation
+
+---
+
+#### `@acp:ref-section`
+
+**NEW in RFC-0002.** Specifies section within documentation.
+
+**Syntax**: `@acp:ref-section <section-path> - <directive>`
+
+**Example**:
+```typescript
+/**
+ * @acp:ref react:hooks - Follow React hooks patterns
+ * @acp:ref-section hooks/rules-of-hooks - Focus on the rules of hooks section
+ */
+```
+
+**Behavior**:
+- Specifies a section within the referenced documentation
+- Section path is relative to the source's base URL
+- AI SHOULD navigate directly to this section
+
+---
+
+#### `@acp:ref-fetch`
+
+**NEW in RFC-0002.** Indicates whether AI should fetch the reference.
+
+**Syntax**: `@acp:ref-fetch <true|false> - <directive>`
+
+**Example**:
+```typescript
+/**
+ * @acp:ref react:hooks - Follow React hooks patterns
+ * @acp:ref-fetch true - AI SHOULD fetch this documentation when working on this code
+ */
+```
+
+**Behavior**:
+- `true`: AI SHOULD proactively fetch documentation when working on this code
+- `false` (default): AI MAY fetch but is not expected to
+- Default can be set in config `documentation.defaults.fetchRefs`
 
 ---
 
@@ -1226,6 +1311,311 @@ function compare(a: string, b: string): boolean {
 
 ---
 
+## 11. Annotation Provenance (RFC-0003)
+
+### 11.1 Overview
+
+RFC-0003 introduces annotation provenance tracking to identify auto-generated annotations that may need human review. This system enables:
+
+- **Tracking annotation origins**: Know whether annotations are human-written or auto-generated
+- **Confidence scoring**: Understand the reliability of auto-generated annotations
+- **Review workflows**: Identify annotations requiring human verification
+- **Generation auditing**: Track when and how annotations were generated
+
+### 11.2 Provenance Annotations
+
+#### `@acp:source`
+
+Marks the origin of the preceding annotation(s).
+
+**Syntax**: `@acp:source <origin> - <directive>`
+
+**Origin Values**:
+
+| Origin | Description | Typical Use |
+|--------|-------------|-------------|
+| `explicit` | Human-written annotation (default if no `@acp:source`) | Manual annotation |
+| `converted` | Converted from existing JSDoc/docstring/etc. | `acp annotate --convert` |
+| `heuristic` | Generated by naming/path/visibility heuristics | `acp annotate` |
+| `refined` | AI-improved from previous auto-generation | `acp review --refine` |
+| `inferred` | Inferred from code analysis | Reserved for future use |
+
+**Example**:
+```typescript
+/**
+ * @acp:fn "Validates user session token" - Use this understanding when calling
+ * @acp:source heuristic - Auto-generated from function signature; may need review
+ */
+function validateSession(token: string): Session { }
+```
+
+**Behavior**:
+- Applies to immediately preceding annotation(s)
+- If no `@acp:source`, annotation is assumed to be `explicit` (human-written)
+- Used for filtering and review workflows
+
+---
+
+#### `@acp:source-confidence`
+
+Confidence score for auto-generated annotations.
+
+**Syntax**: `@acp:source-confidence <0.0-1.0> - <directive>`
+
+**Example**:
+```typescript
+/**
+ * @acp:domain authentication - Consider domain context when making changes
+ * @acp:source heuristic - Auto-generated from path pattern
+ * @acp:source-confidence 0.85 - High confidence; path matches auth/* pattern
+ */
+```
+
+**Confidence Levels**:
+
+| Range | Interpretation | Review Needed |
+|-------|----------------|---------------|
+| 0.9-1.0 | Very high confidence | Rarely |
+| 0.7-0.9 | High confidence | Sometimes |
+| 0.5-0.7 | Medium confidence | Often |
+| <0.5 | Low confidence | Always |
+
+**Behavior**:
+- MUST be a decimal between 0.0 and 1.0
+- Only meaningful when `@acp:source` is not `explicit`
+- Annotations below `annotate.provenance.reviewThreshold` (default: 0.8) are flagged for review
+- Annotations below `annotate.provenance.minConfidence` (default: 0.5) are not emitted
+
+---
+
+#### `@acp:source-reviewed`
+
+Indicates whether a human has reviewed the annotation.
+
+**Syntax**: `@acp:source-reviewed <true|false> - <directive>`
+
+**Example**:
+```typescript
+/**
+ * @acp:fn "Processes payment transaction" - Use this understanding when calling
+ * @acp:source heuristic - Auto-generated from function name
+ * @acp:source-confidence 0.65 - Medium confidence
+ * @acp:source-reviewed true - Verified by developer on 2025-01-15
+ */
+function processPayment(amount: number): Receipt { }
+```
+
+**Behavior**:
+- `true`: Human has verified annotation accuracy
+- `false` (default): Annotation has not been reviewed
+- Once reviewed, annotation is considered trusted
+- Used to track review progress
+
+---
+
+#### `@acp:source-id`
+
+Generation batch identifier for tracking.
+
+**Syntax**: `@acp:source-id <id> - <directive>`
+
+**Example**:
+```typescript
+/**
+ * @acp:fn "Handles user logout" - Use this understanding when calling
+ * @acp:source heuristic - Auto-generated
+ * @acp:source-id gen-20251222-001 - Generated in batch gen-20251222-001
+ */
+function handleLogout(): void { }
+```
+
+**Behavior**:
+- Identifies which generation run created the annotation
+- Format is implementation-defined (typically `gen-YYYYMMDD-NNN`)
+- Used for auditing and bulk operations
+- Enables "regenerate this batch" workflows
+
+### 11.3 Provenance Block Syntax
+
+Provenance annotations can be grouped as a block:
+
+```typescript
+/**
+ * @acp:fn "Validates JWT token" - Use this understanding when calling
+ * @acp:param token "JWT string" - Ensure token is valid JWT
+ * @acp:returns "Decoded payload or null" - Handle null case
+ * @acp:source heuristic - All above auto-generated from function signature
+ * @acp:source-confidence 0.72 - Medium-high confidence
+ * @acp:source-id gen-20251222-003 - Generation batch identifier
+ */
+function validateJWT(token: string): JWTPayload | null { }
+```
+
+**Block Association**:
+- `@acp:source*` annotations apply to ALL immediately preceding non-provenance annotations
+- Multiple `@acp:source*` blocks are not allowed (one provenance block per annotation group)
+
+### 11.4 Grammar Extension
+
+The EBNF grammar (Section 2.1) is extended with provenance annotations:
+
+```ebnf
+(* Provenance Annotations - RFC-0003 *)
+
+provenance_annotation = source_annotation
+                      | confidence_annotation
+                      | reviewed_annotation
+                      | id_annotation ;
+
+source_annotation     = "@acp:source" , whitespace , source_origin , " - " , directive ;
+
+source_origin         = "explicit" | "converted" | "heuristic" | "refined" | "inferred" ;
+
+confidence_annotation = "@acp:source-confidence" , whitespace , confidence_value , " - " , directive ;
+
+confidence_value      = digit , "." , digit , { digit } ;  (* 0.0 to 1.0 *)
+
+reviewed_annotation   = "@acp:source-reviewed" , whitespace , boolean_value , " - " , directive ;
+
+boolean_value         = "true" | "false" ;
+
+id_annotation         = "@acp:source-id" , whitespace , generation_id , " - " , directive ;
+
+generation_id         = { letter | digit | "-" } ;
+```
+
+### 11.5 Cache Integration
+
+Provenance data is stored in the cache under `annotations` in file and symbol entries:
+
+```json
+{
+  "files": {
+    "src/auth/session.ts": {
+      "path": "src/auth/session.ts",
+      "summary": "Session management utilities",
+      "annotations": {
+        "summary": {
+          "value": "Session management utilities",
+          "source": "heuristic",
+          "confidence": 0.82,
+          "needsReview": false,
+          "reviewed": true,
+          "reviewedAt": "2025-01-15T10:30:00Z",
+          "generatedAt": "2025-01-10T14:22:00Z",
+          "generationId": "gen-20250110-001"
+        }
+      }
+    }
+  }
+}
+```
+
+Top-level `provenance` statistics are also maintained:
+
+```json
+{
+  "provenance": {
+    "summary": {
+      "total": 150,
+      "bySource": {
+        "explicit": 80,
+        "converted": 20,
+        "heuristic": 45,
+        "refined": 5,
+        "inferred": 0
+      },
+      "needsReview": 12,
+      "reviewed": 58,
+      "averageConfidence": {
+        "converted": 0.92,
+        "heuristic": 0.76
+      }
+    },
+    "lowConfidence": [
+      {
+        "target": "src/utils/helpers.ts",
+        "annotation": "domain",
+        "confidence": 0.45,
+        "value": "utility"
+      }
+    ]
+  }
+}
+```
+
+### 11.6 CLI Integration
+
+#### Query by Provenance
+
+```bash
+# Find all heuristic annotations
+acp query --source heuristic
+
+# Find low-confidence annotations
+acp query --confidence "<0.7"
+
+# Find annotations needing review
+acp query --needs-review
+```
+
+#### Review Workflow
+
+```bash
+# Interactive review of low-confidence annotations
+acp review --confidence "<0.7"
+
+# Mark annotations as reviewed in bulk
+acp review --mark-reviewed --source heuristic --domain authentication
+```
+
+#### Statistics
+
+```bash
+# View provenance statistics
+acp stats --provenance
+```
+
+### 11.7 Configuration
+
+Provenance settings are configured in `.acp.config.json`:
+
+```json
+{
+  "annotate": {
+    "provenance": {
+      "enabled": true,
+      "includeConfidence": true,
+      "reviewThreshold": 0.8,
+      "minConfidence": 0.5
+    },
+    "defaults": {
+      "markNeedsReview": false,
+      "overwriteExisting": false
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `provenance.enabled` | `true` | Enable provenance tracking |
+| `provenance.includeConfidence` | `true` | Include confidence scores |
+| `provenance.reviewThreshold` | `0.8` | Flag for review below this confidence |
+| `provenance.minConfidence` | `0.5` | Don't emit below this confidence |
+| `defaults.markNeedsReview` | `false` | Mark all generated as needing review |
+| `defaults.overwriteExisting` | `false` | Overwrite existing annotations |
+
+### 11.8 Best Practices
+
+1. **Review auto-generated annotations**: Annotations with confidence <0.8 should be reviewed before trusting
+2. **Mark reviewed annotations**: Use `@acp:source-reviewed true` after verifying accuracy
+3. **Keep generation IDs**: Helps track annotation history and enables bulk operations
+4. **Use `--no-provenance` sparingly**: Only when provenance metadata adds unwanted noise
+5. **Set appropriate thresholds**: Adjust `reviewThreshold` based on project needs
+
+---
+
 ## Appendix A: Quick Reference
 
 ### File-Level Annotations
@@ -1239,6 +1629,9 @@ function compare(a: string, b: string): boolean {
 | `@acp:layer` | Yes | Architectural layer |
 | `@acp:stability` | Yes | API stability level |
 | `@acp:ref` | Yes | Reference documentation |
+| `@acp:ref-version` | Yes | Documentation version (RFC-0002) |
+| `@acp:ref-section` | Yes | Documentation section (RFC-0002) |
+| `@acp:ref-fetch` | Yes | Fetch directive (RFC-0002) |
 
 ### Symbol-Level Annotations
 
@@ -1264,13 +1657,58 @@ function compare(a: string, b: string): boolean {
 | `@acp:perf` | Yes | Performance note |
 | `@acp:hack` | Yes | Temporary solution |
 
-For constraint annotations (`@acp:lock`, `@acp:style`, `@acp:behavior`, `@acp:quality`), see [Constraint System](constraints.md).
+### Constraint Annotations
+
+| Annotation | Directive Required | Description |
+|------------|-------------------|-------------|
+| `@acp:style` | Yes | Style guide reference |
+| `@acp:style-rules` | Yes | Custom style rules |
+| `@acp:style-extends` | Yes | Parent style guide (RFC-0002) |
+| `@acp:lock` | Yes | Mutation constraint |
+| `@acp:behavior` | Yes | AI behavior guidance |
+| `@acp:quality` | Yes | Quality requirements |
+
+### Provenance Annotations (RFC-0003)
+
+| Annotation | Directive Required | Description |
+|------------|-------------------|-------------|
+| `@acp:source` | Yes | Annotation origin marker |
+| `@acp:source-confidence` | Yes | Confidence score (0.0-1.0) |
+| `@acp:source-reviewed` | Yes | Human review status |
+| `@acp:source-id` | Yes | Generation batch identifier |
+
+For full constraint annotation details, see [Constraint System](constraints.md).
 
 For debug/hack annotations (`@acp:debug`, `@acp:hack`), see [Debug Sessions](debug-sessions.md).
 
 ---
 
-## Appendix B: Related Documents
+## Appendix B: Built-in Style Guide Registry (RFC-0002)
+
+The following style guide names are reserved and recognized by default:
+
+| Guide Name          | Language   | Source                        | Documentation URL                                            |
+|---------------------|------------|-------------------------------|--------------------------------------------------------------|
+| `google-typescript` | TypeScript | Google TypeScript Style Guide | https://google.github.io/styleguide/tsguide.html             |
+| `google-javascript` | JavaScript | Google JavaScript Style Guide | https://google.github.io/styleguide/jsguide.html             |
+| `google-python`     | Python     | Google Python Style Guide     | https://google.github.io/styleguide/pyguide.html             |
+| `google-java`       | Java       | Google Java Style Guide       | https://google.github.io/styleguide/javaguide.html           |
+| `google-cpp`        | C++        | Google C++ Style Guide        | https://google.github.io/styleguide/cppguide.html            |
+| `google-go`         | Go         | Effective Go                  | https://go.dev/doc/effective_go                              |
+| `airbnb-javascript` | JavaScript | Airbnb JavaScript Style Guide | https://github.com/airbnb/javascript                         |
+| `airbnb-react`      | React      | Airbnb React/JSX Style Guide  | https://github.com/airbnb/javascript/tree/master/react       |
+| `pep8`              | Python     | PEP 8                         | https://peps.python.org/pep-0008/                            |
+| `black`             | Python     | Black code formatter defaults | https://black.readthedocs.io/en/stable/the_black_code_style/ |
+| `prettier`          | Multi      | Prettier defaults             | https://prettier.io/docs/en/options.html                     |
+| `rustfmt`           | Rust       | rustfmt defaults              | https://rust-lang.github.io/rustfmt/                         |
+| `standardjs`        | JavaScript | JavaScript Standard Style     | https://standardjs.com/rules.html                            |
+| `tailwindcss-v3`    | CSS        | Tailwind CSS v3 conventions   | https://v2.tailwindcss.com/docs                              |
+
+Custom style guides can be defined in `.acp.config.json` under `documentation.styleGuides`. See [Config File](config.md) for details.
+
+---
+
+## Appendix C: Related Documents
 
 - [Constraint System](constraints.md) - `@acp:lock`, `@acp:style`, `@acp:behavior`, `@acp:quality`
 - [Variable System](vars.md) - Variable expansion and references

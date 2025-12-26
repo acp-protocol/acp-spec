@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACP Primer Evaluation</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>ACP Primer Evaluation</h1>
+      <nav class="nav">
+        <button class="nav-btn active" data-view="runs">Test Runs</button>
+        <button class="nav-btn" data-view="primers">Primers</button>
+        <button class="nav-btn" data-view="scenarios">Scenarios</button>
+        <button class="nav-btn" data-view="new-test">Run Tests</button>
+      </nav>
+    </header>
+
+    <main class="main">
+      <!-- Test Runs View -->
+      <section id="runs-view" class="view active">
+        <h2>Test Runs</h2>
+        <div id="runs-list" class="card-list">
+          <p class="loading">Loading runs...</p>
+        </div>
+      </section>
+
+      <!-- Run Details View -->
+      <section id="run-details-view" class="view">
+        <div class="back-link">
+          <button class="btn-link" onclick="showView('runs')">&larr; Back to Runs</button>
+        </div>
+        <div id="run-details-content"></div>
+      </section>
+
+      <!-- Primers View -->
+      <section id="primers-view" class="view">
+        <h2>Primers</h2>
+        <div class="primers-layout">
+          <div id="primers-list" class="sidebar">
+            <p class="loading">Loading primers...</p>
+          </div>
+          <div id="primer-editor" class="editor-panel">
+            <div class="editor-header">
+              <h3 id="primer-name">Select a primer</h3>
+              <div class="editor-actions">
+                <button id="save-primer-btn" class="btn btn-primary" disabled>Save</button>
+                <button id="new-primer-btn" class="btn">New Primer</button>
+              </div>
+            </div>
+            <div class="editor-meta">
+              <label>Name: <input type="text" id="primer-meta-name" placeholder="Primer name"></label>
+              <label>Tokens: <input type="number" id="primer-meta-tokens" placeholder="~50"></label>
+              <label>Description: <input type="text" id="primer-meta-desc" placeholder="Description"></label>
+              <label>Tags: <input type="text" id="primer-meta-tags" placeholder="tag1, tag2"></label>
+            </div>
+            <textarea id="primer-content" placeholder="# Primer content in markdown..."></textarea>
+            <div class="preview">
+              <h4>Preview</h4>
+              <pre id="primer-preview"></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scenarios View -->
+      <section id="scenarios-view" class="view">
+        <h2>Scenarios</h2>
+        <div id="scenarios-list" class="card-list">
+          <p class="loading">Loading scenarios...</p>
+        </div>
+      </section>
+
+      <!-- New Test View -->
+      <section id="new-test-view" class="view">
+        <h2>Run New Test</h2>
+        <form id="new-test-form" class="form">
+          <div class="form-group">
+            <label for="test-primer">Primer</label>
+            <select id="test-primer" required>
+              <option value="">Select a primer...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Categories</label>
+            <div id="test-categories" class="checkbox-group">
+              <label><input type="checkbox" value="constraints" checked> Constraints</label>
+              <label><input type="checkbox" value="exploration" checked> Exploration</label>
+              <label><input type="checkbox" value="self-expansion" checked> Self-Expansion</label>
+              <label><input type="checkbox" value="variables" checked> Variables</label>
+              <label><input type="checkbox" value="annotations" checked> Annotations</label>
+              <label><input type="checkbox" value="boundaries" checked> Boundaries</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="test-judge"> Enable Claude-as-Judge
+            </label>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="test-dry-run"> Dry Run (no API calls)
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="run-test-btn">Run Tests</button>
+          </div>
+        </form>
+        <div id="test-progress" class="progress-panel hidden">
+          <h3>Running tests...</h3>
+          <div class="spinner"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

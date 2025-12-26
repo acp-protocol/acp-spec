@@ -5,6 +5,161 @@ All notable changes to the AI Context Protocol specification and reference imple
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-12-25
+
+### Added - RFC-0004: Tiered Interface Primers
+
+This release implements RFC-0004, which introduces a simplified primer system with tiered interface documentation for AI agents. It replaces the multi-dimensional scoring system with a straightforward budget-aware tier selection algorithm.
+
+#### New CLI Command
+
+- `acp primer` - Generate AI bootstrap primers with tiered content selection
+  - `--budget <N>` - Token budget for the primer (default: 200)
+  - `--capabilities <caps>` - Filter by capabilities (comma-separated: shell, mcp)
+  - `--json` - Output as JSON with metadata
+  - `--cache <path>` - Include project warnings from cache
+
+#### Tier System
+
+| Tier | Budget Range | Content Depth |
+|------|--------------|---------------|
+| Minimal | <80 tokens remaining | Command + one-line purpose |
+| Standard | 80-299 tokens | + options, output shape, usage |
+| Full | 300+ tokens | + examples, patterns |
+
+#### Bootstrap Block (~20 tokens)
+
+Always included regardless of budget:
+```
+This project uses ACP. @acp:* comments are directives for you.
+Before editing: acp constraints <path>
+More: acp primer --budget N
+```
+
+#### Schema Updates
+
+- **primer.schema.json**: Added RFC-0004 tiered structure definitions
+  - `bootstrap` - Core awareness block (always included)
+  - `interface` - Tiered CLI/MCP/daemon command documentation
+  - `command` - Command with priority, critical flag, and tiered content
+  - `tierContent` - Tokens and template per tier level
+  - `projectConfig` - Dynamic project-specific content settings
+
+#### CLI Implementation (acp-cli)
+
+- New `src/commands/primer.rs` module with:
+  - `Tier::from_budget()` - Tier selection based on remaining tokens
+  - `generate_primer()` - Budget-aware content selection
+  - `get_project_warnings()` - Extract frozen/restricted symbols from cache
+  - Default command set with 8 commands at 3 tier levels
+- 5 new unit tests + 2 schema validation tests
+
+### Changed
+
+- RFC-0004 status updated to Implemented
+- Primer schema `sections` field now optional (backward compatible)
+
+## [0.5.0] - 2025-12-24
+
+### Added - RFC-0006: Documentation System Bridging
+
+This release implements RFC-0006, which enables ACP to leverage existing documentation from JSDoc, Python docstrings (Google/NumPy/Sphinx), Rustdoc, and other language-specific documentation systems.
+
+#### Schema Updates
+
+- **config.schema.json**: Added `bridge` configuration section
+  - `enabled` - Enable/disable documentation bridging
+  - `precedence` - Merge priority: `acp-first`, `native-first`, `merge`
+  - `strictness` - Error handling: `permissive`, `strict`
+  - `jsdoc` - JSDoc/TSDoc settings (enabled, extractTypes, convertTags)
+  - `python` - Python docstring settings (enabled, docstringStyle, extractTypeHints)
+  - `rust` - Rust doc settings (enabled, convertSections)
+  - `provenance` - Tracking settings (markConverted, includeSourceFormat)
+
+- **cache.schema.json**: Added bridging support
+  - `bridge` top-level section for aggregate statistics
+  - `bridge_metadata` per-file bridging information
+  - `source`, `sourceFormat`, `sourceFormats` fields on param/returns/throws entries
+  - `TypeSource`, `BridgeSource`, `SourceFormat` enums
+
+#### New CLI Commands
+
+- `acp bridge status` - Show bridging configuration and statistics
+- `acp index --bridge` - Enable bridging during indexing
+- `acp index --no-bridge` - Disable bridging (overrides config)
+
+#### Specification Updates
+
+- **Chapter 15 (Bridging)**: New chapter covering documentation bridging architecture
+  - Format detection for JSDoc, Python docstrings (Google/NumPy/Sphinx), Rustdoc
+  - Precedence rules for merging native docs with ACP annotations
+  - Provenance tracking for converted annotations
+
+#### CLI Implementation (acp-cli)
+
+- New `src/bridge/` module with:
+  - `config.rs` - BridgeConfig, JsDocConfig, PythonConfig, RustConfig
+  - `detector.rs` - FormatDetector with auto-detection for all formats
+  - `merger.rs` - BridgeMerger with precedence modes
+  - `mod.rs` - BridgeResult type and module structure
+- Indexer integration with format detection and statistics
+- 39 new tests (21 unit + 18 integration)
+
+### Changed
+
+- RFC-0006 status updated to Implemented
+- Cache schema version remains compatible (additive changes only)
+
+## [0.4.0] - 2025-12-22
+
+### Added - RFC-0002: Documentation References and Style Guides
+
+This release implements RFC-0002, which formalizes the `@acp:ref` and `@acp:style` annotation system with project-level configuration, schema support, and AI behavioral guidelines.
+
+#### Schema Updates
+
+- **config.schema.json**: Added `documentation` configuration section
+  - `approvedSources[]` - Define trusted documentation sources with IDs
+  - `styleGuides{}` - Custom style guide definitions with inheritance
+  - `defaults` - Project-wide documentation defaults
+  - `validation` - Reference validation settings
+
+- **cache.schema.json**: Added documentation storage
+  - `refs[]` in file_entry - Documentation references per file
+  - `style` object in file_entry - Enhanced style configuration
+  - `documentation` top-level index - Project-wide documentation aggregation
+  - `$defs/ref_entry` and `$defs/style_entry` definitions
+
+#### New Annotations
+
+- `@acp:ref-version` - Specify documentation version
+- `@acp:ref-section` - Reference specific section within documentation
+- `@acp:ref-fetch` - Control whether AI should proactively fetch documentation
+- `@acp:style-extends` - Style guide inheritance
+
+#### Specification Updates
+
+- **ACP-1.0.md Appendix A**: Updated reserved annotations table with RFC-0002 additions
+- **Chapter 03 (Cache Format)**: Added `refs[]`, `style`, and `documentation` index documentation
+- **Chapter 04 (Config Format)**: New Section 9 for documentation configuration
+- **Chapter 05 (Annotations)**: Extended documentation reference annotations, added built-in style guide registry
+- **Chapter 06 (Constraints)**: Updated style constraints with inheritance and built-in guide URLs
+- **Chapter 11 (Tool Integration)**: New Section 10 for AI behavior with documentation references
+
+#### Built-in Style Guide Registry
+
+Added 14 built-in style guides with official documentation URLs:
+- `google-typescript`, `google-javascript`, `google-python`, `google-java`, `google-cpp`, `google-go`
+- `airbnb-javascript`, `airbnb-react`
+- `pep8`, `black`
+- `prettier`, `rustfmt`, `standardjs`, `tailwindcss-v3`
+
+### Changed
+
+- RFC-0002 status updated to Implemented
+- RFC-0002 open questions resolved
+- RFC directory structure flattened (all RFCs in `rfcs/`, status tracked in header)
+
 ## [0.3.0] - 2025-12-21
 
 ### Added

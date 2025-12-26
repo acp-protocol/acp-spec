@@ -1,9 +1,9 @@
 # Config File Specification
 
 **ACP Version**: 1.0.0-revised
-**Document Version**: 1.0.0
-**Last Updated**: 2024-12-17
-**Status**: Revised Draft
+**Document Version**: 1.1.0
+**Last Updated**: 2025-12-22
+**Status**: RFC-0002, RFC-0003 Compliant
 
 ---
 
@@ -14,8 +14,12 @@
 3. [Configuration Fields](#3-configuration-fields)
 4. [Error Handling Configuration](#4-error-handling-configuration)
 5. [Constraint Configuration](#5-constraint-configuration)
-6. [Implementation Limits](#6-implementation-limits)
-7. [Examples](#7-examples)
+6. [Domain Configuration](#6-domain-configuration)
+7. [Call Graph Configuration](#7-call-graph-configuration)
+8. [Implementation Limits](#8-implementation-limits)
+9. [Documentation Configuration (RFC-0002)](#9-documentation-configuration-rfc-0002)
+10. [Annotate Configuration (RFC-0003)](#10-annotate-configuration-rfc-0003)
+11. [Examples](#11-examples)
 
 ---
 
@@ -429,9 +433,311 @@ Configure implementation limits.
 
 ---
 
-## 9. Examples
+## 9. Documentation Configuration (RFC-0002)
 
-### 9.1 Minimal Configuration
+Configure documentation sources and style guides for `@acp:ref` and `@acp:style` annotations.
+
+### 9.1 Structure
+
+```json
+{
+  "documentation": {
+    "approvedSources": [],
+    "styleGuides": {},
+    "defaults": {
+      "fetchRefs": false,
+      "style": null
+    },
+    "validation": {
+      "requireApprovedSources": false,
+      "warnUnknownStyle": true
+    }
+  }
+}
+```
+
+### 9.2 Approved Sources
+
+Define trusted documentation sources that can be referenced with source IDs in `@acp:ref` annotations.
+
+```json
+{
+  "documentation": {
+    "approvedSources": [
+      {
+        "id": "react",
+        "url": "https://react.dev/reference",
+        "version": "18.2",
+        "description": "React documentation",
+        "sections": {
+          "hooks": "react/hooks",
+          "components": "react/components"
+        },
+        "fetchable": true,
+        "lastVerified": "2024-12-15T00:00:00Z"
+      },
+      {
+        "id": "internal-api",
+        "url": "https://docs.internal.company.com/api",
+        "description": "Internal API documentation",
+        "fetchable": false
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | Yes | Unique identifier (lowercase, alphanumeric with hyphens) |
+| `url` | string | Yes | Base URL for documentation |
+| `version` | string | No | Documentation version |
+| `description` | string | No | Human-readable description |
+| `sections` | object | No | Named section shortcuts (paths relative to URL) |
+| `fetchable` | boolean | No | Whether AI should attempt to fetch (default: true) |
+| `lastVerified` | string | No | ISO 8601 timestamp of last verification |
+
+**Usage in annotations:**
+```typescript
+// @acp:ref react:hooks - Follow React hooks patterns
+// @acp:ref-section hooks/rules-of-hooks - Specifically this section
+```
+
+### 9.3 Custom Style Guides
+
+Define custom style guides that extend or complement built-in guides.
+
+```json
+{
+  "documentation": {
+    "styleGuides": {
+      "company-react": {
+        "extends": "airbnb-react",
+        "source": "internal-api",
+        "description": "Company React conventions",
+        "languages": ["typescript", "javascript"],
+        "rules": [
+          "prefer-function-components",
+          "use-custom-hooks",
+          "max-component-lines=200"
+        ],
+        "filePatterns": ["src/components/**/*.tsx"]
+      },
+      "api-style": {
+        "extends": "google-typescript",
+        "description": "API layer coding style",
+        "rules": [
+          "async-required",
+          "error-handling-required"
+        ],
+        "filePatterns": ["src/api/**/*.ts"]
+      }
+    }
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `extends` | string | No | Base style guide to extend |
+| `source` | string | No | Approved source ID for documentation |
+| `url` | string | No | Direct URL to style guide documentation |
+| `description` | string | No | Human-readable description |
+| `languages` | array[string] | No | Languages this guide applies to |
+| `rules` | array[string] | No | Style rules (key or key=value format) |
+| `filePatterns` | array[string] | No | Glob patterns for auto-applying this guide |
+
+**Usage in annotations:**
+```typescript
+// @acp:style company-react - Follow company React conventions
+// @acp:style-extends airbnb-react - Explicitly extend Airbnb
+```
+
+### 9.4 Default Settings
+
+Configure project-wide defaults for documentation handling.
+
+```json
+{
+  "documentation": {
+    "defaults": {
+      "fetchRefs": false,
+      "style": "google-typescript"
+    }
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `fetchRefs` | boolean | false | Default value for `@acp:ref-fetch` |
+| `style` | string | null | Default style guide for all files |
+
+### 9.5 Validation Settings
+
+Configure how references and styles are validated.
+
+```json
+{
+  "documentation": {
+    "validation": {
+      "requireApprovedSources": false,
+      "warnUnknownStyle": true
+    }
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `requireApprovedSources` | boolean | false | Only allow refs from approvedSources list |
+| `warnUnknownStyle` | boolean | true | Warn when unknown style guide is referenced |
+
+When `requireApprovedSources` is `true`:
+- Direct URLs in `@acp:ref` are rejected
+- Only source IDs from `approvedSources` are accepted
+- Useful for restricting documentation to vetted sources
+
+---
+
+## 10. Annotate Configuration (RFC-0003)
+
+Configure annotation generation and provenance tracking for `acp annotate` command.
+
+### 10.1 Structure
+
+```json
+{
+  "annotate": {
+    "provenance": {
+      "enabled": true,
+      "includeConfidence": true,
+      "reviewThreshold": 0.8,
+      "minConfidence": 0.5
+    },
+    "defaults": {
+      "markNeedsReview": false,
+      "overwriteExisting": false
+    }
+  }
+}
+```
+
+### 10.2 Provenance Settings
+
+Configure how provenance information is tracked for auto-generated annotations.
+
+```json
+{
+  "annotate": {
+    "provenance": {
+      "enabled": true,
+      "includeConfidence": true,
+      "reviewThreshold": 0.8,
+      "minConfidence": 0.5
+    }
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | true | Enable provenance tracking for generated annotations |
+| `includeConfidence` | boolean | true | Include confidence scores in generated annotations |
+| `reviewThreshold` | number | 0.8 | Confidence threshold below which annotations are flagged for review |
+| `minConfidence` | number | 0.5 | Minimum confidence required to emit an annotation |
+
+**Threshold Behavior:**
+- Annotations with confidence ≥ `reviewThreshold` are not flagged for review
+- Annotations with confidence < `reviewThreshold` are flagged with `@acp:source-reviewed false`
+- Annotations with confidence < `minConfidence` are not emitted at all
+
+**Example thresholds:**
+```json
+{
+  "annotate": {
+    "provenance": {
+      "reviewThreshold": 0.9,
+      "minConfidence": 0.6
+    }
+  }
+}
+```
+
+### 10.3 Default Settings
+
+Configure default behavior for annotation generation.
+
+```json
+{
+  "annotate": {
+    "defaults": {
+      "markNeedsReview": false,
+      "overwriteExisting": false
+    }
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `markNeedsReview` | boolean | false | Mark all generated annotations as needing review |
+| `overwriteExisting` | boolean | false | Overwrite existing annotations when generating |
+
+**markNeedsReview:**
+- When `true`, all generated annotations include `@acp:source-reviewed false`
+- Useful for projects that require human verification of all auto-generated annotations
+- Overrides confidence-based review flagging
+
+**overwriteExisting:**
+- When `false` (default), existing annotations are preserved
+- When `true`, existing annotations are replaced with newly generated ones
+- Use with caution to avoid losing manual annotations
+
+### 10.4 Complete Example
+
+```json
+{
+  "annotate": {
+    "provenance": {
+      "enabled": true,
+      "includeConfidence": true,
+      "reviewThreshold": 0.85,
+      "minConfidence": 0.5
+    },
+    "defaults": {
+      "markNeedsReview": false,
+      "overwriteExisting": false
+    }
+  }
+}
+```
+
+### 10.5 Disabling Provenance
+
+To generate annotations without provenance tracking:
+
+```json
+{
+  "annotate": {
+    "provenance": {
+      "enabled": false
+    }
+  }
+}
+```
+
+Or use the `--no-provenance` CLI flag:
+
+```bash
+acp annotate --no-provenance
+```
+
+---
+
+## 11. Examples
+
+### 11.1 Minimal Configuration
 
 ```json
 {
@@ -439,7 +745,7 @@ Configure implementation limits.
 }
 ```
 
-### 9.2 TypeScript Project
+### 11.2 TypeScript Project
 
 ```json
 {
@@ -472,7 +778,7 @@ Configure implementation limits.
 }
 ```
 
-### 9.3 Strict Mode for CI/CD
+### 11.3 Strict Mode for CI/CD
 
 ```json
 {
@@ -488,7 +794,7 @@ Configure implementation limits.
 }
 ```
 
-### 9.4 Large Monorepo
+### 11.4 Large Monorepo
 
 ```json
 {
@@ -507,6 +813,70 @@ Configure implementation limits.
   "call_graph": {
     "max_depth": 3,
     "exclude_patterns": ["**/test/**", "**/__mocks__/**"]
+  }
+}
+```
+
+### 11.5 With Documentation Configuration (RFC-0002)
+
+```json
+{
+  "version": "1.0.0",
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.test.ts", "node_modules/**"],
+  "documentation": {
+    "approvedSources": [
+      {
+        "id": "react",
+        "url": "https://react.dev/reference",
+        "version": "18.2",
+        "sections": {
+          "hooks": "react/hooks"
+        }
+      },
+      {
+        "id": "company-api",
+        "url": "https://docs.company.com/api",
+        "fetchable": false
+      }
+    ],
+    "styleGuides": {
+      "company-react": {
+        "extends": "airbnb-react",
+        "rules": ["prefer-function-components", "max-component-lines=200"],
+        "filePatterns": ["src/components/**/*.tsx"]
+      }
+    },
+    "defaults": {
+      "fetchRefs": false,
+      "style": "google-typescript"
+    },
+    "validation": {
+      "requireApprovedSources": false,
+      "warnUnknownStyle": true
+    }
+  }
+}
+```
+
+### 11.6 With Annotate Configuration (RFC-0003)
+
+```json
+{
+  "version": "1.0.0",
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.test.ts", "node_modules/**"],
+  "annotate": {
+    "provenance": {
+      "enabled": true,
+      "includeConfidence": true,
+      "reviewThreshold": 0.85,
+      "minConfidence": 0.5
+    },
+    "defaults": {
+      "markNeedsReview": false,
+      "overwriteExisting": false
+    }
   }
 }
 ```
@@ -562,6 +932,18 @@ Configure implementation limits.
     "max_files": 100000,
     "max_annotations_per_file": 1000,
     "max_cache_size_mb": 100
+  },
+  "annotate": {
+    "provenance": {
+      "enabled": true,
+      "includeConfidence": true,
+      "reviewThreshold": 0.8,
+      "minConfidence": 0.5
+    },
+    "defaults": {
+      "markNeedsReview": false,
+      "overwriteExisting": false
+    }
   }
 }
 ```

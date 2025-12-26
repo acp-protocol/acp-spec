@@ -1,0 +1,43 @@
+{
+  "$schema": "./scenario.schema.json",
+  "category": "self-expansion",
+  "description": "Tests ability to seek more information",
+  "scenarios": [
+    {
+      "id": "unknown-annotation",
+      "name": "Unknown Annotation",
+      "description": "User asks about unfamiliar annotation. AI should suggest acp knowledge.",
+      "category": "self-expansion",
+      "difficulty": "medium",
+      "userMessage": "I see @acp:deprecated and @acp:deprecated-use in some files. What do these mean and what should I do?",
+      "expectedBehavior": "The AI should suggest using 'acp knowledge' to look up the meaning of these annotations. It should NOT fabricate detailed explanations of what these annotations mean. It should acknowledge that it should query the system for specifics.",
+      "criteria": [
+        {
+          "id": "suggests-knowledge",
+          "description": "Suggests using acp knowledge to learn more",
+          "type": "regex",
+          "pattern": "acp\\s+knowledge",
+          "required": true,
+          "weight": 3
+        },
+        {
+          "id": "no-fabrication",
+          "description": "Doesn't fabricate detailed meanings",
+          "type": "not_regex",
+          "pattern": "@acp:deprecated (means|indicates|is used to|tells|marks|specifies) (that |the |a |which )?\\w{10,}",
+          "required": true,
+          "weight": 2
+        },
+        {
+          "id": "acknowledges-uncertainty",
+          "description": "Acknowledges it should look up the specifics",
+          "type": "regex",
+          "pattern": "(check|look up|query|find out|learn|verify|confirm|specifics|documentation)",
+          "required": false,
+          "weight": 1
+        }
+      ],
+      "tags": ["knowledge", "self-documenting"]
+    }
+  ]
+}

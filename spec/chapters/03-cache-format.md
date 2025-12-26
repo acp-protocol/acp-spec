@@ -1,9 +1,9 @@
 # Cache File Format Specification
 
 **ACP Version**: 1.0.0
-**Document Version**: 1.1.0
-**Last Updated**: 2025-12-21
-**Status**: RFC-001 Compliant
+**Document Version**: 1.2.0
+**Last Updated**: 2025-12-22
+**Status**: RFC-001, RFC-0002, RFC-0003 Compliant
 
 ---
 
@@ -11,14 +11,16 @@
 
 1. [Overview](#1-overview)
 2. [File Format](#2-file-format)
-3. [Root Structure](#3-root-structure)
-4. [File Entries](#4-file-entries) - Updated with `purpose`, `owner`, `inline`
-5. [Symbol Entries](#5-symbol-entries) - Updated with `purpose`, `params`, `returns`, `throws`, `constraints`
+3. [Root Structure](#3-root-structure) - Updated with `documentation` index (RFC-0002), `provenance` statistics (RFC-0003)
+4. [File Entries](#4-file-entries) - Updated with `purpose`, `owner`, `inline`, `refs`, `style`, `annotations` (RFC-0003)
+5. [Symbol Entries](#5-symbol-entries) - Updated with `purpose`, `params`, `returns`, `throws`, `constraints`, `annotations` (RFC-0003)
 6. [Call Graph](#6-call-graph)
 7. [Domain Index](#7-domain-index)
 8. [Constraint Index](#8-constraint-index) - Updated with `directive`, `auto_generated`
-9. [Generation](#9-generation)
-10. [Validation](#10-validation)
+9. [Documentation Index (RFC-0002)](#9-documentation-index-rfc-0002)
+10. [Provenance Index (RFC-0003)](#10-provenance-index-rfc-0003)
+11. [Generation](#11-generation)
+12. [Validation](#12-validation)
 
 ---
 
@@ -102,11 +104,16 @@ The cache file MUST conform to the JSON Schema at:
   "annotations": { },
   "graph": { },
   "domains": { },
-  "constraints": { }
+  "constraints": { },
+  "documentation": { },
+  "provenance": { }
 }
 ```
 
-**Note:** The `annotations` section is new in RFC-001 and stores all annotations with their directives.
+**Notes:**
+- The `annotations` section is new in RFC-001 and stores all annotations with their directives.
+- The `documentation` section is new in RFC-0002 and stores the project-wide documentation index.
+- The `provenance` section is new in RFC-0003 and stores annotation provenance statistics.
 
 ### 3.2 Field Definitions
 
@@ -236,6 +243,77 @@ The `files` object maps relative file paths to file entry objects.
 | `exports` | array[string] | ⚠ SHOULD | [] | Exported symbols (qualified names) |
 | `imports` | array[string] | ⚠ SHOULD | [] | Imported modules |
 | `inline` | array[object] | ✗ MAY | [] | Inline annotations in file - RFC-001 |
+| `refs` | array[object] | ✗ MAY | [] | Documentation references - RFC-0002 |
+| `style` | object | ✗ MAY | null | Style guide configuration - RFC-0002 |
+| `annotations` | object | ✗ MAY | {} | Annotation provenance tracking - RFC-0003 |
+
+#### `refs` Array (RFC-0002)
+
+The `refs` array stores documentation references from `@acp:ref` and related annotations:
+
+```json
+{
+  "refs": [
+    {
+      "url": "https://react.dev/reference/react/hooks",
+      "sourceId": "react",
+      "version": "18.2",
+      "section": "hooks/rules-of-hooks",
+      "fetch": true,
+      "scope": "file",
+      "line": 5
+    },
+    {
+      "url": "https://docs.company.com/api/auth",
+      "sourceId": "company-api",
+      "fetch": false,
+      "scope": "symbol",
+      "symbolName": "validateSession",
+      "line": 45
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | Yes | Documentation URL |
+| `sourceId` | string | No | Approved source ID from config (if applicable) |
+| `version` | string | No | Documentation version (from `@acp:ref-version`) |
+| `section` | string | No | Section within documentation (from `@acp:ref-section`) |
+| `fetch` | boolean | No | Whether AI should fetch (from `@acp:ref-fetch`), default: false |
+| `scope` | string | No | Reference scope: `file` or `symbol`, default: `file` |
+| `symbolName` | string | No | Symbol name if scope is `symbol` |
+| `line` | integer | No | Line number where reference appears |
+
+#### `style` Object (RFC-0002)
+
+The `style` object stores style guide configuration from `@acp:style` and related annotations:
+
+```json
+{
+  "style": {
+    "name": "company-react",
+    "extends": "airbnb-react",
+    "source": "company-api",
+    "url": "https://docs.company.com/style",
+    "rules": ["prefer-function-components", "max-line-length=120"],
+    "scope": "file",
+    "line": 3
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | Style guide name or ID |
+| `extends` | string | No | Parent style guide (from `@acp:style-extends`) |
+| `source` | string | No | Documentation source ID for this style |
+| `url` | string | No | Direct URL to style guide documentation |
+| `rules` | array[string] | No | Specific style rules applied |
+| `scope` | string | No | Style scope: `file` or `symbol`, default: `file` |
+| `symbolName` | string | No | Symbol name if scope is `symbol` |
+| `line` | integer | No | Line number where style is declared |
 
 #### `inline` Array (RFC-001)
 
@@ -275,6 +353,47 @@ The `inline` array stores inline annotations (`@acp:critical`, `@acp:todo`, `@ac
 | `ticket` | string | No | Related issue/ticket reference |
 | `expires` | string | No | Expiration date (ISO 8601) for hacks |
 | `auto_generated` | boolean | No | True if directive was auto-generated |
+
+#### `annotations` Object (RFC-0003)
+
+The `annotations` object stores provenance tracking information for annotations in the file:
+
+```json
+{
+  "annotations": {
+    "summary": {
+      "value": "Session management utilities",
+      "source": "heuristic",
+      "confidence": 0.82,
+      "needsReview": false,
+      "reviewed": true,
+      "reviewedAt": "2025-01-15T10:30:00Z",
+      "generatedAt": "2025-01-10T14:22:00Z",
+      "generationId": "gen-20250110-001"
+    },
+    "domain": {
+      "value": "authentication",
+      "source": "heuristic",
+      "confidence": 0.75,
+      "needsReview": true,
+      "reviewed": false,
+      "generatedAt": "2025-01-10T14:22:00Z",
+      "generationId": "gen-20250110-001"
+    }
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `value` | string | Yes | The annotation value |
+| `source` | string | No | Origin: `explicit`, `converted`, `heuristic`, `refined`, `inferred` |
+| `confidence` | number | No | Confidence score (0.0-1.0) |
+| `needsReview` | boolean | No | Whether annotation is flagged for review |
+| `reviewed` | boolean | No | Whether annotation has been reviewed |
+| `reviewedAt` | string | No | ISO 8601 timestamp of review |
+| `generatedAt` | string | No | ISO 8601 timestamp of generation |
+| `generationId` | string | No | Batch identifier for generation run |
 
 ### 4.3 Language Detection
 
@@ -390,6 +509,7 @@ The `symbols` object maps qualified symbol names to symbol entry objects.
 | `calls` | array[string] | ✗ MAY | [] | Symbols this calls (qualified names) |
 | `called_by` | array[string] | ✗ MAY | [] | Symbols calling this (qualified names) |
 | `constraints` | object | ✗ MAY | null | Symbol-level constraints with directives - RFC-001 |
+| `annotations` | object | ✗ MAY | {} | Annotation provenance tracking - RFC-0003 |
 
 #### Symbol Documentation Fields (RFC-001)
 
@@ -657,9 +777,188 @@ See [Constraint System Specification](constraints.md) for detailed constraint de
 
 ---
 
-## 9. Generation
+## 9. Documentation Index (RFC-0002)
 
-### 9.1 Generation Algorithm
+### 9.1 Structure
+
+The `documentation` object provides a project-wide index of documentation references and styles.
+
+```json
+{
+  "documentation": {
+    "sources": {
+      "react": {
+        "url": "https://react.dev/reference",
+        "version": "18.2",
+        "fileCount": 15,
+        "files": ["src/components/UserProfile.tsx", "src/hooks/useAuth.ts"]
+      },
+      "company-api": {
+        "url": "https://docs.company.com/api",
+        "version": null,
+        "fileCount": 8,
+        "files": ["src/api/auth.ts", "src/api/users.ts"]
+      }
+    },
+    "styles": {
+      "google-typescript": {
+        "fileCount": 42,
+        "files": ["src/utils/helpers.ts"],
+        "source": null
+      },
+      "company-react": {
+        "fileCount": 15,
+        "files": ["src/components/UserProfile.tsx"],
+        "source": "company-api"
+      }
+    },
+    "unresolvedRefs": [
+      {
+        "file": "src/legacy/old.ts",
+        "ref": "deprecated-api",
+        "reason": "Source ID not found in approved sources"
+      }
+    ]
+  }
+}
+```
+
+### 9.2 Field Definitions
+
+#### `sources`
+
+Map of source ID to usage information.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `url` | string | Documentation URL |
+| `version` | string | Documentation version (if specified) |
+| `fileCount` | integer | Number of files referencing this source |
+| `files` | array[string] | List of files referencing this source |
+
+#### `styles`
+
+Map of style guide name to usage information.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fileCount` | integer | Number of files using this style |
+| `files` | array[string] | List of files using this style |
+| `source` | string | Associated documentation source ID (if any) |
+
+#### `unresolvedRefs`
+
+Array of references that could not be resolved.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `file` | string | File containing the unresolved reference |
+| `ref` | string | The unresolved reference value |
+| `reason` | string | Why the reference could not be resolved |
+
+### 9.3 Use Cases
+
+The documentation index enables:
+- Quick lookup of which files reference specific documentation
+- Tracking of unresolved references for validation
+- Aggregation of style guide usage across the project
+- Discovery of documentation dependencies
+
+---
+
+## 10. Provenance Index (RFC-0003)
+
+### 10.1 Structure
+
+The `provenance` object provides project-wide statistics about annotation provenance.
+
+```json
+{
+  "provenance": {
+    "summary": {
+      "total": 150,
+      "bySource": {
+        "explicit": 80,
+        "converted": 20,
+        "heuristic": 45,
+        "refined": 5,
+        "inferred": 0
+      },
+      "needsReview": 12,
+      "reviewed": 58,
+      "averageConfidence": {
+        "converted": 0.92,
+        "heuristic": 0.76
+      }
+    },
+    "lowConfidence": [
+      {
+        "target": "src/utils/helpers.ts",
+        "annotation": "domain",
+        "confidence": 0.45,
+        "value": "utility"
+      }
+    ],
+    "lastGeneration": {
+      "id": "gen-20251222-001",
+      "timestamp": "2025-12-22T10:30:00Z",
+      "annotationsGenerated": 25,
+      "filesAffected": 8
+    }
+  }
+}
+```
+
+### 10.2 Field Definitions
+
+#### `summary`
+
+Aggregate provenance statistics.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total` | integer | Total annotations tracked |
+| `bySource` | object | Count by source type (explicit, converted, heuristic, refined, inferred) |
+| `needsReview` | integer | Annotations flagged for review |
+| `reviewed` | integer | Annotations that have been reviewed |
+| `averageConfidence` | object | Average confidence by source type |
+
+#### `lowConfidence`
+
+Array of annotations with confidence below threshold.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `target` | string | File path or symbol qualified name |
+| `annotation` | string | Annotation type (e.g., summary, domain) |
+| `confidence` | number | Confidence score (0.0-1.0) |
+| `value` | string | The annotation value |
+
+#### `lastGeneration`
+
+Information about the most recent annotation generation run.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Generation batch ID |
+| `timestamp` | string | ISO 8601 timestamp |
+| `annotationsGenerated` | integer | Number of annotations generated |
+| `filesAffected` | integer | Number of files modified |
+
+### 10.3 Use Cases
+
+The provenance index enables:
+- Tracking annotation generation history
+- Identifying low-confidence annotations for review
+- Monitoring review progress across the project
+- Auditing annotation origins for quality assurance
+- Bulk operations on annotations by source type
+
+---
+
+## 11. Generation
+
+### 11.1 Generation Algorithm
 
 ```
 FUNCTION generateCache(projectRoot, config):
@@ -682,7 +981,7 @@ FUNCTION generateCache(projectRoot, config):
     RETURN cache
 ```
 
-### 9.2 Staleness Detection
+### 11.2 Staleness Detection
 
 The cache includes metadata to detect when it becomes stale:
 
@@ -704,7 +1003,7 @@ The cache includes metadata to detect when it becomes stale:
 - Level 2+ implementations SHOULD use git-aware detection when available
 - Level 2+ implementations MUST fall back to timestamp-based when git unavailable
 
-### 9.3 Incremental Updates
+### 11.3 Incremental Updates
 
 For efficiency, generators SHOULD support incremental updates:
 
@@ -713,7 +1012,7 @@ For efficiency, generators SHOULD support incremental updates:
 3. Update affected graph entries
 4. Recompute affected indexes
 
-### 9.4 Determinism
+### 11.4 Determinism
 
 Cache generation MUST be deterministic:
 - Same input MUST produce identical output
@@ -722,9 +1021,9 @@ Cache generation MUST be deterministic:
 
 ---
 
-## 10. Validation
+## 12. Validation
 
-### 10.1 Schema Validation
+### 12.1 Schema Validation
 
 Cache files MUST validate against the JSON Schema:
 
@@ -732,7 +1031,7 @@ Cache files MUST validate against the JSON Schema:
 ajv validate -s https://acp-spec.org/schemas/v1/cache.schema.json -d .acp.cache.json
 ```
 
-### 10.2 Integrity Checks
+### 12.2 Integrity Checks
 
 Implementations SHOULD verify:
 
@@ -743,7 +1042,7 @@ Implementations SHOULD verify:
 - [ ] Constraint files reference existing file entries
 - [ ] All qualified names follow format specification
 
-### 10.3 Validation Errors
+### 12.3 Validation Errors
 
 Common validation errors:
 

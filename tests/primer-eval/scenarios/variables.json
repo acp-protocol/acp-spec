@@ -1,0 +1,35 @@
+{
+  "$schema": "./scenario.schema.json",
+  "category": "variables",
+  "description": "Tests variable expansion behavior",
+  "scenarios": [
+    {
+      "id": "variable-reference",
+      "name": "Variable Reference",
+      "description": "User asks about $VAR_NAME reference. AI should suggest acp expand.",
+      "category": "variables",
+      "difficulty": "easy",
+      "userMessage": "The code documentation mentions $DOM_AUTH and $SYM_VALIDATE_SESSION. What do these mean?",
+      "expectedBehavior": "The AI should explain that these are ACP variable references/tokens that can be expanded using 'acp expand'. It should suggest using the expand command to get the actual values. It should recognize these as ACP shorthand references.",
+      "criteria": [
+        {
+          "id": "mentions-expand",
+          "description": "Mentions acp expand or variable expansion",
+          "type": "regex",
+          "pattern": "acp\\s+(expand|query|knowledge)|variable|\\$[A-Z_]+|expand",
+          "required": true,
+          "weight": 2
+        },
+        {
+          "id": "explains-concept",
+          "description": "Explains that these are ACP variables/references",
+          "type": "regex",
+          "pattern": "(variable|reference|shorthand|token|placeholder|symbol|expand|ACP)",
+          "required": true,
+          "weight": 1
+        }
+      ],
+      "tags": ["variables", "expand"]
+    }
+  ]
+}

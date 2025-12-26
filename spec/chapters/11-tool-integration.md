@@ -18,8 +18,9 @@
 7. [Tool Adapters](#7-tool-adapters)
 8. [File Ownership and Merging](#8-file-ownership-and-merging)
 9. [Knowledge Store](#9-knowledge-store)
-10. [Conformance](#10-conformance)
-11. [Examples](#11-examples)
+10. [Documentation References (RFC-0002)](#10-documentation-references-rfc-0002)
+11. [Conformance](#11-conformance)
+12. [Examples](#12-examples)
 
 ---
 
@@ -590,9 +591,90 @@ The primer includes self-expansion sections that teach the AI to query for more 
 
 ---
 
-## 10. Conformance
+## 10. Documentation References (RFC-0002)
 
-### 10.1 Conformance Levels
+This section specifies how AI tools should handle documentation references and style guides defined via `@acp:ref` and `@acp:style` annotations.
+
+### 10.1 When to Consult References
+
+AI tools SHOULD consult documentation references in these scenarios:
+
+| Scenario | Action | Priority |
+|----------|--------|----------|
+| Modifying code with `@acp:ref-fetch true` | SHOULD fetch documentation proactively | High |
+| User asks about code with `@acp:ref` | SHOULD mention reference exists | Medium |
+| Adding new code in file with `@acp:ref` | MAY consult reference for patterns | Medium |
+| Debugging code with `@acp:ref` | MAY consult for expected behavior | Low |
+| Simple formatting changes | SHOULD NOT fetch (wasteful) | N/A |
+
+### 10.2 When NOT to Fetch
+
+AI tools SHOULD NOT fetch documentation when:
+
+- The change is trivial (typos, formatting)
+- The reference is marked `fetchable: false` in config
+- The `@acp:ref-fetch` is explicitly `false`
+- Network access is restricted or unavailable
+- Documentation would exceed context limits
+
+### 10.3 Reference Resolution
+
+AI tools resolve `@acp:ref` annotations in this order:
+
+1. **Source ID Resolution**: If reference uses a source ID (e.g., `react:hooks`):
+   - Look up `id` in `documentation.approvedSources` in config
+   - Construct URL from source `url` + section path (if `@acp:ref-section` present)
+   - Apply version from `@acp:ref-version` if present
+
+2. **Direct URL**: If reference is a full URL:
+   - If `validation.requireApprovedSources` is `true`, reject and warn
+   - Otherwise, use URL directly
+
+3. **Fallback**: If reference cannot be resolved:
+   - Log to `unresolvedRefs` in cache
+   - Warn user but continue processing
+
+### 10.4 Style Application
+
+AI tools SHOULD apply style guides as follows:
+
+| Style Setting | AI Behavior |
+|---------------|-------------|
+| `@acp:style <guide>` | Follow specified style for new/modified code |
+| `@acp:style-extends <parent>` | Apply parent rules first, then override |
+| `@acp:style-rules <rules>` | Apply specific rules (comma-separated) |
+| Config `documentation.styleGuides` | Use for custom style definitions |
+| Config `documentation.defaults.style` | Apply as fallback for files without annotation |
+| No style specified | Follow surrounding code patterns |
+
+**Precedence** (highest to lowest):
+1. Symbol-level `@acp:style`
+2. File-level `@acp:style`
+3. Config `documentation.defaults.style`
+4. Surrounding code patterns
+
+### 10.5 Caching Recommendations
+
+AI tools SHOULD:
+- Cache fetched documentation during a session
+- Use `documentation.sources` in cache for quick reference lookup
+- Respect `lastVerified` timestamps for staleness
+- Limit fetch frequency to avoid rate limiting
+
+### 10.6 Error Handling
+
+| Error | AI Behavior |
+|-------|-------------|
+| Source ID not found | Warn, continue without fetching |
+| Network timeout | Continue without documentation, note in response |
+| Invalid URL | Log to `unresolvedRefs`, continue |
+| Unknown style guide | Warn if `validation.warnUnknownStyle` is true |
+
+---
+
+## 11. Conformance
+
+### 11.1 Conformance Levels
 
 | Level        | Requirements                                                |
 |--------------|-------------------------------------------------------------|
@@ -600,7 +682,7 @@ The primer includes self-expansion sections that teach the AI to query for more 
 | Sync Level 2 | All built-in adapters, merge strategies, primer integration |
 | Sync Level 3 | Custom adapters, templates, hooks, knowledge store          |
 
-### 10.2 Required Behaviors
+### 11.2 Required Behaviors
 
 Implementations MUST:
 1. Preserve user content outside ACP sections
@@ -616,9 +698,9 @@ Implementations SHOULD:
 
 ---
 
-## 11. Examples
+## 12. Examples
 
-### 11.1 Basic Workflow
+### 12.1 Basic Workflow
 
 ```bash
 # Initialize project (includes sync)
@@ -635,7 +717,7 @@ acp init
 # User opens any AI tool - context is already there
 ```
 
-### 11.2 Custom Weights
+### 12.2 Custom Weights
 
 ```bash
 # Safety-focused for security-critical project
@@ -649,7 +731,7 @@ acp sync --primer-preset safe
 }
 ```
 
-### 11.3 Budget Analysis
+### 12.3 Budget Analysis
 
 ```bash
 # Compare what different budgets include

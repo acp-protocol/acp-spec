@@ -171,6 +171,304 @@
         }
       ],
       "description": "Sync configuration for AI tool integration (can also be in .acp/acp.sync.json)"
+    },
+    "annotate": {
+      "type": "object",
+      "description": "Annotation generation configuration (RFC-0003)",
+      "properties": {
+        "provenance": {
+          "type": "object",
+          "description": "Provenance tracking settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable provenance tracking for generated annotations"
+            },
+            "includeConfidence": {
+              "type": "boolean",
+              "default": true,
+              "description": "Include confidence scores in generated annotations"
+            },
+            "reviewThreshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.8,
+              "description": "Confidence threshold below which annotations are flagged for review"
+            },
+            "minConfidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.5,
+              "description": "Minimum confidence required to emit an annotation"
+            }
+          }
+        },
+        "defaults": {
+          "type": "object",
+          "description": "Default settings for annotation generation",
+          "properties": {
+            "markNeedsReview": {
+              "type": "boolean",
+              "default": false,
+              "description": "Mark all generated annotations as needing review"
+            },
+            "overwriteExisting": {
+              "type": "boolean",
+              "default": false,
+              "description": "Overwrite existing annotations when generating"
+            }
+          }
+        }
+      }
+    },
+    "bridge": {
+      "type": "object",
+      "description": "Documentation bridging configuration (RFC-0006)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable documentation bridging during indexing"
+        },
+        "precedence": {
+          "type": "string",
+          "enum": ["acp-first", "native-first", "merge"],
+          "default": "acp-first",
+          "description": "Precedence when both native docs and ACP exist"
+        },
+        "strictness": {
+          "type": "string",
+          "enum": ["permissive", "strict"],
+          "default": "permissive",
+          "description": "How to handle malformed documentation"
+        },
+        "jsdoc": {
+          "type": "object",
+          "description": "JSDoc/TSDoc bridging settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable JSDoc bridging for JavaScript/TypeScript"
+            },
+            "extractTypes": {
+              "type": "boolean",
+              "default": true,
+              "description": "Extract types from @type, @param {Type}"
+            },
+            "convertTags": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["param", "returns", "throws", "deprecated", "example", "see"],
+              "description": "JSDoc tags to convert to ACP annotations"
+            }
+          }
+        },
+        "python": {
+          "type": "object",
+          "description": "Python docstring bridging settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable Python docstring bridging"
+            },
+            "docstringStyle": {
+              "type": "string",
+              "enum": ["auto", "google", "numpy", "sphinx"],
+              "default": "auto",
+              "description": "Docstring style to parse (auto-detect recommended)"
+            },
+            "extractTypeHints": {
+              "type": "boolean",
+              "default": true,
+              "description": "Extract type hints from function signatures"
+            },
+            "convertSections": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["Args", "Parameters", "Returns", "Raises", "Example", "Yields"],
+              "description": "Docstring sections to convert to ACP annotations"
+            }
+          }
+        },
+        "rust": {
+          "type": "object",
+          "description": "Rust doc comment bridging settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable Rust doc comment bridging"
+            },
+            "convertSections": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["Arguments", "Returns", "Panics", "Errors", "Examples", "Safety"],
+              "description": "Rust doc sections to convert"
+            }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "description": "Provenance tracking for bridged annotations",
+          "properties": {
+            "markConverted": {
+              "type": "boolean",
+              "default": true,
+              "description": "Add source: 'converted' to bridged annotations"
+            },
+            "includeSourceFormat": {
+              "type": "boolean",
+              "default": true,
+              "description": "Include sourceFormat field (jsdoc, docstring:google, etc.)"
+            }
+          }
+        }
+      }
+    },
+    "documentation": {
+      "type": "object",
+      "description": "Documentation and style guide configuration (RFC-0002)",
+      "properties": {
+        "approvedSources": {
+          "type": "array",
+          "description": "Trusted documentation sources for this project",
+          "items": {
+            "$ref": "#/$defs/approved_source"
+          }
+        },
+        "styleGuides": {
+          "type": "object",
+          "description": "Custom style guide definitions",
+          "additionalProperties": {
+            "$ref": "#/$defs/style_guide_definition"
+          }
+        },
+        "defaults": {
+          "type": "object",
+          "description": "Default documentation settings",
+          "properties": {
+            "fetchRefs": {
+              "type": "boolean",
+              "default": false,
+              "description": "Default value for @acp:ref-fetch"
+            },
+            "style": {
+              "type": "string",
+              "description": "Default style guide for all files"
+            }
+          }
+        },
+        "validation": {
+          "type": "object",
+          "description": "Reference validation settings",
+          "properties": {
+            "requireApprovedSources": {
+              "type": "boolean",
+              "default": false,
+              "description": "Only allow refs from approvedSources list"
+            },
+            "warnUnknownStyle": {
+              "type": "boolean",
+              "default": true,
+              "description": "Warn when unknown style guide is referenced"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "approved_source": {
+      "type": "object",
+      "description": "Approved documentation source definition (RFC-0002)",
+      "required": ["id", "url"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Unique identifier for this source (used in @acp:ref)"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL for documentation"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of documentation (semver or custom)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "sections": {
+          "type": "object",
+          "description": "Named section shortcuts",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Path relative to base URL"
+          }
+        },
+        "fetchable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether AI tools should attempt to fetch this source"
+        },
+        "lastVerified": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this source was last verified accessible"
+        }
+      }
+    },
+    "style_guide_definition": {
+      "type": "object",
+      "description": "Custom style guide definition (RFC-0002)",
+      "properties": {
+        "extends": {
+          "type": "string",
+          "description": "Base style guide to extend"
+        },
+        "source": {
+          "type": "string",
+          "description": "Approved source ID for documentation"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Direct URL to style guide documentation"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Languages this guide applies to"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Style rules (key or key=value format)"
+        },
+        "filePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Glob patterns for auto-applying this guide"
+        }
+      }
     }
   }
 }

@@ -141,9 +141,295 @@
           }
         }
       }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Annotation provenance statistics (RFC-0003)",
+      "properties": {
+        "summary": {
+          "type": "object",
+          "description": "Aggregate provenance statistics",
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total annotations tracked"
+            },
+            "bySource": {
+              "type": "object",
+              "description": "Count by source type",
+              "properties": {
+                "explicit": { "type": "integer", "minimum": 0 },
+                "converted": { "type": "integer", "minimum": 0 },
+                "heuristic": { "type": "integer", "minimum": 0 },
+                "refined": { "type": "integer", "minimum": 0 },
+                "inferred": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "needsReview": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Annotations flagged for review"
+            },
+            "reviewed": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Annotations that have been reviewed"
+            },
+            "averageConfidence": {
+              "type": "object",
+              "description": "Average confidence by source type",
+              "properties": {
+                "converted": { "type": "number", "minimum": 0, "maximum": 1 },
+                "heuristic": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            }
+          }
+        },
+        "lowConfidence": {
+          "type": "array",
+          "description": "Annotations with confidence below threshold",
+          "items": {
+            "type": "object",
+            "properties": {
+              "target": {
+                "type": "string",
+                "description": "File path or symbol qualified name"
+              },
+              "annotation": {
+                "type": "string",
+                "description": "Annotation type (e.g., summary, domain)"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "value": {
+                "type": "string",
+                "description": "The annotation value"
+              }
+            }
+          }
+        },
+        "lastGeneration": {
+          "type": "object",
+          "description": "Last annotation generation run",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Generation batch ID"
+            },
+            "timestamp": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "annotationsGenerated": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "filesAffected": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "documentation": {
+      "type": "object",
+      "description": "Project-wide documentation index (RFC-0002)",
+      "properties": {
+        "sources": {
+          "type": "object",
+          "description": "Map of source ID to usage info",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "description": "Documentation URL"
+              },
+              "version": {
+                "type": ["string", "null"],
+                "description": "Documentation version"
+              },
+              "fileCount": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Number of files referencing this source"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Files referencing this source"
+              }
+            }
+          }
+        },
+        "styles": {
+          "type": "object",
+          "description": "Map of style guide to usage info",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "fileCount": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Number of files using this style"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Files using this style"
+              },
+              "source": {
+                "type": ["string", "null"],
+                "description": "Associated documentation source ID"
+              }
+            }
+          }
+        },
+        "unresolvedRefs": {
+          "type": "array",
+          "description": "References that could not be resolved",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string",
+                "description": "File containing the unresolved reference"
+              },
+              "ref": {
+                "type": "string",
+                "description": "The unresolved reference value"
+              },
+              "reason": {
+                "type": "string",
+                "description": "Why the reference could not be resolved"
+              }
+            }
+          }
+        }
+      }
+    },
+    "bridge": {
+      "type": "object",
+      "description": "Project-wide bridging statistics (RFC-0006)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether bridging was enabled during indexing"
+        },
+        "precedence": {
+          "type": "string",
+          "enum": ["acp-first", "native-first", "merge"],
+          "description": "Precedence mode used"
+        },
+        "summary": {
+          "type": "object",
+          "description": "Aggregate statistics",
+          "properties": {
+            "totalAnnotations": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total annotations from all sources"
+            },
+            "convertedCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Annotations converted from native docs"
+            },
+            "mergedCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Annotations merged (native + ACP)"
+            },
+            "explicitCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Pure ACP annotations"
+            }
+          }
+        },
+        "byFormat": {
+          "type": "object",
+          "description": "Counts by source format",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "byLanguage": {
+          "type": "object",
+          "description": "Counts by programming language",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "fileCount": { "type": "integer", "minimum": 0 },
+              "convertedCount": { "type": "integer", "minimum": 0 },
+              "detectedStyles": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {
+    "annotation_provenance": {
+      "type": "object",
+      "description": "Annotation provenance entry (RFC-0003)",
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "The annotation value"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["explicit", "converted", "heuristic", "refined", "inferred"],
+          "default": "explicit",
+          "description": "Origin of the annotation"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score for auto-generated annotations (0.0-1.0)"
+        },
+        "needsReview": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether annotation is flagged for human review"
+        },
+        "reviewed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether annotation has been reviewed by human"
+        },
+        "reviewedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the annotation was reviewed"
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the annotation was auto-generated"
+        },
+        "generationId": {
+          "type": "string",
+          "description": "Batch identifier for generation run"
+        }
+      }
+    },
     "inline_annotation": {
       "type": "object",
       "description": "Inline annotation entry (RFC-001)",
@@ -185,12 +471,30 @@
     },
     "param_entry": {
       "type": "object",
-      "description": "Parameter documentation entry (RFC-001)",
+      "description": "Parameter documentation entry (RFC-001, RFC-0006)",
       "required": ["name"],
       "properties": {
         "name": {
           "type": "string",
           "description": "Parameter name"
+        },
+        "type": {
+          "type": ["string", "null"],
+          "description": "Parameter type (RFC-0006)"
+        },
+        "typeSource": {
+          "type": "string",
+          "enum": ["type_hint", "jsdoc", "docstring", "inferred"],
+          "description": "Where the type was extracted from (RFC-0006)"
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether parameter is optional"
+        },
+        "default": {
+          "type": ["string", "null"],
+          "description": "Default value if optional"
         },
         "description": {
           "type": "string",
@@ -199,13 +503,36 @@
         "directive": {
           "type": "string",
           "description": "Directive for parameter usage (RFC-001)"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["explicit", "converted", "merged", "heuristic"],
+          "description": "Provenance of this entry (RFC-0006)"
+        },
+        "sourceFormat": {
+          "type": ["string", "null"],
+          "description": "Original format (jsdoc, docstring:google, etc.) (RFC-0006)"
+        },
+        "sourceFormats": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "All formats that contributed for merged entries (RFC-0006)"
         }
       }
     },
     "returns_entry": {
       "type": "object",
-      "description": "Return value documentation entry (RFC-001)",
+      "description": "Return value documentation entry (RFC-001, RFC-0006)",
       "properties": {
+        "type": {
+          "type": ["string", "null"],
+          "description": "Return type (RFC-0006)"
+        },
+        "typeSource": {
+          "type": "string",
+          "enum": ["type_hint", "jsdoc", "docstring", "inferred"],
+          "description": "Where the type was extracted from (RFC-0006)"
+        },
         "description": {
           "type": "string",
           "description": "Return value description"
@@ -213,12 +540,26 @@
         "directive": {
           "type": "string",
           "description": "Directive for handling return value (RFC-001)"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["explicit", "converted", "merged", "heuristic"],
+          "description": "Provenance of this entry (RFC-0006)"
+        },
+        "sourceFormat": {
+          "type": ["string", "null"],
+          "description": "Original format (RFC-0006)"
+        },
+        "sourceFormats": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "All formats that contributed for merged entries (RFC-0006)"
         }
       }
     },
     "throws_entry": {
       "type": "object",
-      "description": "Exception documentation entry (RFC-001)",
+      "description": "Exception documentation entry (RFC-001, RFC-0006)",
       "required": ["exception"],
       "properties": {
         "exception": {
@@ -232,6 +573,15 @@
         "directive": {
           "type": "string",
           "description": "How to handle the exception (RFC-001)"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["explicit", "converted", "merged", "heuristic"],
+          "description": "Provenance of this entry (RFC-0006)"
+        },
+        "sourceFormat": {
+          "type": ["string", "null"],
+          "description": "Original format (RFC-0006)"
         }
       }
     },
@@ -345,6 +695,49 @@
         "git": {
           "$ref": "#/$defs/git_file_info",
           "description": "Git metadata for the file"
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref_entry"
+          },
+          "default": [],
+          "description": "Documentation references (RFC-0002)"
+        },
+        "style": {
+          "$ref": "#/$defs/style_entry",
+          "description": "Style guide configuration (RFC-0002)"
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotation provenance tracking (RFC-0003)",
+          "additionalProperties": {
+            "$ref": "#/$defs/annotation_provenance"
+          }
+        },
+        "bridge": {
+          "$ref": "#/$defs/bridge_metadata",
+          "description": "Documentation bridging metadata (RFC-0006)"
+        },
+        "version": {
+          "type": ["string", "null"],
+          "description": "File version (from @acp:version) (RFC-0009)"
+        },
+        "since": {
+          "type": ["string", "null"],
+          "description": "Version when file was introduced (from @acp:since) (RFC-0009)"
+        },
+        "license": {
+          "type": ["string", "null"],
+          "description": "File license (from @acp:license) (RFC-0009)"
+        },
+        "author": {
+          "type": ["string", "null"],
+          "description": "File author (from @acp:author) (RFC-0009)"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle_annotations",
+          "description": "Lifecycle status (RFC-0009)"
         }
       }
     },
@@ -448,6 +841,29 @@
         "git": {
           "$ref": "#/$defs/git_symbol_info",
           "description": "Git metadata for the symbol"
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotation provenance tracking (RFC-0003)",
+          "additionalProperties": {
+            "$ref": "#/$defs/annotation_provenance"
+          }
+        },
+        "behavioral": {
+          "$ref": "#/$defs/behavioral_annotations",
+          "description": "Behavioral characteristics (RFC-0009)"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle_annotations",
+          "description": "Lifecycle status (RFC-0009)"
+        },
+        "documentation": {
+          "$ref": "#/$defs/documentation_annotations",
+          "description": "Documentation metadata (RFC-0009)"
+        },
+        "performance": {
+          "$ref": "#/$defs/performance_annotations",
+          "description": "Performance characteristics (RFC-0009)"
         }
       }
     },
@@ -569,6 +985,253 @@
           "type": "integer",
           "minimum": 0,
           "description": "Number of days since this code was last modified"
+        }
+      }
+    },
+    "ref_entry": {
+      "type": "object",
+      "description": "Documentation reference entry (RFC-0002)",
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Documentation URL"
+        },
+        "sourceId": {
+          "type": ["string", "null"],
+          "description": "Approved source ID from config (if applicable)"
+        },
+        "version": {
+          "type": ["string", "null"],
+          "description": "Documentation version (from @acp:ref-version)"
+        },
+        "section": {
+          "type": ["string", "null"],
+          "description": "Section within documentation (from @acp:ref-section)"
+        },
+        "fetch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether AI should fetch this reference (from @acp:ref-fetch)"
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["file", "symbol"],
+          "default": "file",
+          "description": "Reference scope"
+        },
+        "symbolName": {
+          "type": ["string", "null"],
+          "description": "Symbol name if scope is 'symbol'"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number where reference appears"
+        }
+      }
+    },
+    "bridge_metadata": {
+      "type": "object",
+      "description": "Documentation bridging metadata (RFC-0006)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether bridging was enabled for this file"
+        },
+        "detectedStyle": {
+          "type": ["string", "null"],
+          "description": "Auto-detected docstring style (google, numpy, sphinx, etc.)"
+        },
+        "convertedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of annotations bridged from native docs"
+        },
+        "mergedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of annotations merged (native + ACP)"
+        },
+        "explicitCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of pure ACP annotations"
+        },
+        "sourceFormats": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Documentation formats found in this file"
+        }
+      }
+    },
+    "style_entry": {
+      "type": "object",
+      "description": "Style guide configuration entry (RFC-0002)",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Style guide name or ID"
+        },
+        "extends": {
+          "type": ["string", "null"],
+          "description": "Parent style guide (from @acp:style-extends)"
+        },
+        "source": {
+          "type": ["string", "null"],
+          "description": "Documentation source ID for this style"
+        },
+        "url": {
+          "type": ["string", "null"],
+          "format": "uri",
+          "description": "Direct URL to style guide documentation"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Specific style rules applied"
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["file", "symbol"],
+          "default": "file",
+          "description": "Style scope"
+        },
+        "symbolName": {
+          "type": ["string", "null"],
+          "description": "Symbol name if scope is 'symbol'"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number where style is declared"
+        }
+      }
+    },
+    "behavioral_annotations": {
+      "type": "object",
+      "description": "Behavioral characteristics of a symbol (RFC-0009)",
+      "properties": {
+        "pure": {
+          "type": "boolean",
+          "description": "Function has no side effects (from @acp:pure)"
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Function is safe to call multiple times (from @acp:idempotent)"
+        },
+        "memoized": {
+          "type": ["boolean", "string"],
+          "description": "Results are cached; string for duration (from @acp:memoized)"
+        },
+        "async": {
+          "type": "boolean",
+          "description": "Function is asynchronous (from @acp:async)"
+        },
+        "generator": {
+          "type": "boolean",
+          "description": "Function is a generator (from @acp:generator)"
+        },
+        "throttled": {
+          "type": ["string", "null"],
+          "description": "Rate limit specification (from @acp:throttled)"
+        },
+        "transactional": {
+          "type": "boolean",
+          "description": "Function runs in a database transaction (from @acp:transactional)"
+        },
+        "sideEffects": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of side effects (from @acp:side-effects)"
+        }
+      }
+    },
+    "lifecycle_annotations": {
+      "type": "object",
+      "description": "Lifecycle status of a symbol or file (RFC-0009)",
+      "properties": {
+        "deprecated": {
+          "type": ["string", "null"],
+          "description": "Deprecation message with version/replacement (from @acp:deprecated)"
+        },
+        "experimental": {
+          "type": "boolean",
+          "description": "API may change without notice (from @acp:experimental)"
+        },
+        "beta": {
+          "type": "boolean",
+          "description": "Feature in beta testing (from @acp:beta)"
+        },
+        "internal": {
+          "type": "boolean",
+          "description": "Not intended for external use (from @acp:internal)"
+        },
+        "publicApi": {
+          "type": "boolean",
+          "description": "Stable public interface (from @acp:public-api)"
+        },
+        "since": {
+          "type": ["string", "null"],
+          "description": "Version when introduced (from @acp:since)"
+        }
+      }
+    },
+    "documentation_annotations": {
+      "type": "object",
+      "description": "Documentation metadata for a symbol (RFC-0009)",
+      "properties": {
+        "examples": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Code examples (from @acp:example)"
+        },
+        "seeAlso": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "References to related symbols (from @acp:see)"
+        },
+        "links": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "External documentation URLs (from @acp:link)"
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Important notes (from @acp:note)"
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Warnings about usage (from @acp:warning)"
+        },
+        "todos": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Pending work items (from @acp:todo)"
+        }
+      }
+    },
+    "performance_annotations": {
+      "type": "object",
+      "description": "Performance characteristics of a symbol (RFC-0009)",
+      "properties": {
+        "complexity": {
+          "type": ["string", "null"],
+          "description": "Time complexity notation (from @acp:perf)"
+        },
+        "memory": {
+          "type": ["string", "null"],
+          "description": "Space complexity notation (from @acp:memory)"
+        },
+        "cached": {
+          "type": ["string", "null"],
+          "description": "Caching duration or strategy (from @acp:cached)"
         }
       }
     }

@@ -1,0 +1,43 @@
+{
+  "$schema": "./scenario.schema.json",
+  "category": "exploration",
+  "description": "Tests codebase exploration behavior",
+  "scenarios": [
+    {
+      "id": "codebase-exploration",
+      "name": "Codebase Exploration",
+      "description": "User asks about codebase structure. AI should use acp query, not guess.",
+      "category": "exploration",
+      "difficulty": "easy",
+      "userMessage": "How is authentication handled in this project?",
+      "expectedBehavior": "The AI should suggest using ACP commands to explore the codebase (acp query domain auth, acp query symbol, or acp knowledge). It should NOT make assumptions about the architecture or describe a typical/common approach. It should acknowledge it needs to query the actual codebase.",
+      "criteria": [
+        {
+          "id": "suggests-query",
+          "description": "Suggests using acp query or similar command",
+          "type": "regex",
+          "pattern": "acp\\s+(query|knowledge)",
+          "required": true,
+          "weight": 3
+        },
+        {
+          "id": "no-assumptions",
+          "description": "Doesn't make assumptions about architecture",
+          "type": "not_regex",
+          "pattern": "(typically|usually|most (projects|applications)|commonly|standard approach|likely uses)",
+          "required": true,
+          "weight": 2
+        },
+        {
+          "id": "suggests-domain-query",
+          "description": "Suggests querying auth domain specifically",
+          "type": "regex",
+          "pattern": "(acp query.*(domain|auth|symbol))|domain.*auth|auth.*domain",
+          "required": false,
+          "weight": 1
+        }
+      ],
+      "tags": ["exploration", "query"]
+    }
+  ]
+}
