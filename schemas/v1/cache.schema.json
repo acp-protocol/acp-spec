@@ -864,6 +864,10 @@
         "performance": {
           "$ref": "#/$defs/performance_annotations",
           "description": "Performance characteristics (RFC-0009)"
+        },
+        "type_info": {
+          "$ref": "#/$defs/type_info",
+          "description": "Type annotation information (RFC-0008)"
         }
       }
     },
@@ -1232,6 +1236,103 @@
         "cached": {
           "type": ["string", "null"],
           "description": "Caching duration or strategy (from @acp:cached)"
+        }
+      }
+    },
+    "type_info": {
+      "type": "object",
+      "description": "Type annotation information for a symbol (RFC-0008)",
+      "properties": {
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/type_param_info"
+          },
+          "default": [],
+          "description": "Parameter type information from @acp:param {Type}"
+        },
+        "returns": {
+          "$ref": "#/$defs/type_return_info",
+          "description": "Return type information from @acp:returns {Type}"
+        },
+        "typeParams": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/type_type_param"
+          },
+          "default": [],
+          "description": "Generic type parameters from @acp:template"
+        }
+      }
+    },
+    "type_param_info": {
+      "type": "object",
+      "description": "Parameter type information (RFC-0008)",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Parameter name"
+        },
+        "type": {
+          "type": ["string", "null"],
+          "description": "Type expression (e.g., 'string', 'Promise<User>')"
+        },
+        "typeSource": {
+          "type": "string",
+          "enum": ["acp", "inferred", "native"],
+          "description": "Where the type came from: acp (annotation), inferred (code analysis), native (JSDoc/docstring)"
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether parameter is optional (from [name] syntax)"
+        },
+        "default": {
+          "type": ["string", "null"],
+          "description": "Default value (from [name=default] syntax)"
+        },
+        "directive": {
+          "type": ["string", "null"],
+          "description": "Directive text for this parameter"
+        }
+      }
+    },
+    "type_return_info": {
+      "type": "object",
+      "description": "Return type information (RFC-0008)",
+      "properties": {
+        "type": {
+          "type": ["string", "null"],
+          "description": "Return type expression"
+        },
+        "typeSource": {
+          "type": "string",
+          "enum": ["acp", "inferred", "native"],
+          "description": "Where the type came from"
+        },
+        "directive": {
+          "type": ["string", "null"],
+          "description": "Directive text for return value"
+        }
+      }
+    },
+    "type_type_param": {
+      "type": "object",
+      "description": "Generic type parameter (RFC-0008)",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Type parameter name (e.g., 'T')"
+        },
+        "constraint": {
+          "type": ["string", "null"],
+          "description": "Constraint type from 'extends' clause"
+        },
+        "directive": {
+          "type": ["string", "null"],
+          "description": "Directive text for type parameter"
         }
       }
     }

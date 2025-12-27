@@ -1,9 +1,9 @@
 # Cache File Format Specification
 
 **ACP Version**: 1.0.0
-**Document Version**: 1.2.0
-**Last Updated**: 2025-12-22
-**Status**: RFC-001, RFC-0002, RFC-0003 Compliant
+**Document Version**: 1.3.0
+**Last Updated**: 2025-12-26
+**Status**: RFC-001, RFC-0002, RFC-0003, RFC-0008 Compliant
 
 ---
 
@@ -13,7 +13,7 @@
 2. [File Format](#2-file-format)
 3. [Root Structure](#3-root-structure) - Updated with `documentation` index (RFC-0002), `provenance` statistics (RFC-0003)
 4. [File Entries](#4-file-entries) - Updated with `purpose`, `owner`, `inline`, `refs`, `style`, `annotations` (RFC-0003)
-5. [Symbol Entries](#5-symbol-entries) - Updated with `purpose`, `params`, `returns`, `throws`, `constraints`, `annotations` (RFC-0003)
+5. [Symbol Entries](#5-symbol-entries) - Updated with `purpose`, `params`, `returns`, `throws`, `constraints`, `annotations` (RFC-0003), `type_info` (RFC-0008)
 6. [Call Graph](#6-call-graph)
 7. [Domain Index](#7-domain-index)
 8. [Constraint Index](#8-constraint-index) - Updated with `directive`, `auto_generated`
@@ -510,6 +510,7 @@ The `symbols` object maps qualified symbol names to symbol entry objects.
 | `called_by` | array[string] | ✗ MAY | [] | Symbols calling this (qualified names) |
 | `constraints` | object | ✗ MAY | null | Symbol-level constraints with directives - RFC-001 |
 | `annotations` | object | ✗ MAY | {} | Annotation provenance tracking - RFC-0003 |
+| `type_info` | object | ✗ MAY | null | Type annotation information - RFC-0008 |
 
 #### Symbol Documentation Fields (RFC-001)
 
@@ -540,6 +541,89 @@ The `symbols` object maps qualified symbol names to symbol entry objects.
   }
 }
 ```
+
+#### Type Information Fields (RFC-0008)
+
+The `type_info` object stores type annotation information extracted from `@acp:param {Type}`, `@acp:returns {Type}`, and `@acp:template` annotations:
+
+```json
+{
+  "type_info": {
+    "params": [
+      {
+        "name": "token",
+        "type": "string",
+        "typeSource": "acp",
+        "optional": false,
+        "directive": "JWT token string to validate"
+      },
+      {
+        "name": "options",
+        "type": "ValidateOptions",
+        "typeSource": "acp",
+        "optional": true,
+        "default": "{}",
+        "directive": "Optional validation options"
+      }
+    ],
+    "returns": {
+      "type": "Promise<Session | null>",
+      "typeSource": "acp",
+      "directive": "Session object or null if invalid"
+    },
+    "typeParams": [
+      {
+        "name": "T",
+        "constraint": "BaseSession",
+        "directive": "Session type extending BaseSession"
+      }
+    ]
+  }
+}
+```
+
+**type_info Field Definitions:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `params` | array[ParamInfo] | No | Parameter type information |
+| `returns` | ReturnInfo | No | Return type information |
+| `typeParams` | array[TypeParam] | No | Generic type parameters |
+
+**ParamInfo Structure:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Parameter name |
+| `type` | string | No | Type expression (e.g., `"string"`, `"Promise<User>"`) |
+| `typeSource` | string | No | Origin: `"acp"`, `"inferred"`, or `"native"` |
+| `optional` | boolean | No | Whether parameter is optional (from `[name]` syntax) |
+| `default` | string | No | Default value (from `[name=default]` syntax) |
+| `directive` | string | No | Directive text for this parameter |
+
+**ReturnInfo Structure:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | No | Return type expression |
+| `typeSource` | string | No | Origin: `"acp"`, `"inferred"`, or `"native"` |
+| `directive` | string | No | Directive text for return value |
+
+**TypeParam Structure:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Type parameter name (e.g., `"T"`) |
+| `constraint` | string | No | Constraint type (from `extends` clause) |
+| `directive` | string | No | Directive text for type parameter |
+
+**typeSource Values:**
+
+| Value | Description | Example Source |
+|-------|-------------|----------------|
+| `acp` | Type from ACP annotation `{Type}` | `@acp:param {string} name` |
+| `inferred` | Type inferred from source code | Function signature parsing |
+| `native` | Type bridged from native docs | JSDoc `@param {string}` |
 
 ### 5.3 Symbol Types
 

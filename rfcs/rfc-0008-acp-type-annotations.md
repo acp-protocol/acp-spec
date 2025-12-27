@@ -3,9 +3,11 @@
 - **RFC ID**: 0008
 - **Title**: ACP Type Annotations
 - **Author**: David (ACP Protocol)
-- **Status**: Draft
+- **Status**: Implemented
 - **Created**: 2025-12-23
-- **Updated**: 2025-12-24
+- **Updated**: 2025-12-26
+- **Implemented**: 2025-12-26
+- **Release**: 0.7.0
 - **Discussion**: [Pending GitHub Discussion]
 - **Parent**: RFC-0007 (ACP Complete Documentation Solution)
 - **Related**: RFC-0001, RFC-0006, RFC-0010 (types rendered in generated documentation)

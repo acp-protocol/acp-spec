@@ -13,7 +13,7 @@ This directory contains RFCs (Request for Comments) for significant changes to t
 | [RFC-0005](rfc-0005-cli-provenance-implementation.md) | CLI Provenance Implementation | Implemented | 2025-12-22 |
 | [RFC-0006](rfc-0006-documentation-system-bridging.md) | Documentation System Bridging | Implemented | 2025-12-24 |
 | [RFC-0007](rfc-0007-acp-complete-documentation-solution.md) | ACP Complete Documentation Solution (Umbrella) | Draft | - |
-| [RFC-0008](rfc-0008-acp-type-annotations.md) | ACP Type Annotations | Draft | - |
+| [RFC-0008](rfc-0008-acp-type-annotations.md) | ACP Type Annotations | Implemented | 2025-12-26 |
 | [RFC-0009](rfc-0009-extended-annotation-types.md) | Extended Annotation Types | Implemented | 2025-12-25 |
 | [RFC-0010](rfc-0010-documentation-generator.md) | ACP Documentation Generator | Draft | - |
 | [RFC-0011](rfc-0011-ide-lsp-integration.md) | IDE and LSP Integration | Draft | - |

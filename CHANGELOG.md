@@ -5,6 +5,64 @@ All notable changes to the AI Context Protocol specification and reference imple
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-12-26
+
+### Added - RFC-0008: ACP Type Annotations
+
+This release implements RFC-0008, which introduces optional type syntax within ACP annotations for documenting parameter and return types directly in `@acp:param` and `@acp:returns` annotations.
+
+#### New Annotation Syntax
+
+```typescript
+/**
+ * @acp:fn "authenticate" - User authentication handler
+ * @acp:template T extends User - User type for response
+ * @acp:param {string} email - Valid email address
+ * @acp:param {string} password - Password meeting requirements
+ * @acp:param {AuthOptions} [options={}] - Optional auth settings
+ * @acp:returns {Promise<T | null>} - User object or null if failed
+ */
+```
+
+**Syntax Elements:**
+- `@acp:param {Type} name - directive` - Parameter with type
+- `@acp:param {Type} [name] - directive` - Optional parameter
+- `@acp:param {Type} [name=default] - directive` - Parameter with default
+- `@acp:returns {Type} - directive` - Return type
+- `@acp:template T extends Constraint - directive` - Generic type parameter
+
+#### Schema Updates
+
+- **cache.schema.json**: Added `type_info` to symbol_entry
+  - `params` - Array of TypeParamInfo (name, type, typeSource, optional, default, directive)
+  - `returns` - TypeReturnInfo (type, typeSource, directive)
+  - `typeParams` - Array of TypeTypeParam (name, constraint, directive)
+- Extended `TypeSource` enum with `acp` and `native` values
+
+#### Specification Updates
+
+- **Chapter 05 (Annotations)**: Added Section 12 - Type Annotations
+  - EBNF grammar for type expressions
+  - Supported type constructs (primitives, arrays, unions, generics, tuples, objects, functions)
+  - Type mapping table (ACP → TypeScript/Python/Rust/Go/Java)
+  - Cache integration documentation
+- **Chapter 03 (Cache Format)**: Added type_info structure documentation
+
+#### CLI Implementation (acp-cli)
+
+- Extended `TypeSource` enum with `Acp` and `Native` variants
+- New cache types: `TypeInfo`, `TypeParamInfo`, `TypeReturnInfo`, `TypeTypeParam`
+- Parser updates for `@acp:param`, `@acp:returns`, `@acp:template` with type extraction
+- `SymbolBuilder` accumulates type_info during parsing
+- 11 new unit tests for type annotation parsing
+
+### Changed
+
+- Types are fully optional for backward compatibility
+- Existing annotations without types remain valid
+
+---
+
 ## [0.6.0] - 2025-12-25
 
 ### Added - RFC-0004: Tiered Interface Primers

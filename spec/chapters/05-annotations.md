@@ -1,9 +1,9 @@
 # Annotation Syntax Specification
 
 **ACP Version**: 1.0.0
-**Document Version**: 1.2.0
-**Last Updated**: 2025-12-22
-**Status**: RFC-001, RFC-0003 Compliant
+**Document Version**: 1.3.0
+**Last Updated**: 2025-12-26
+**Status**: RFC-001, RFC-0003, RFC-0008 Compliant
 
 ---
 
@@ -20,6 +20,7 @@
 9. [Error Handling](#9-error-handling)
 10. [Examples](#10-examples)
 11. [Annotation Provenance (RFC-0003)](#11-annotation-provenance-rfc-0003)
+12. [Type Annotations (RFC-0008)](#12-type-annotations-rfc-0008)
 
 ---
 
@@ -1616,6 +1617,495 @@ Provenance settings are configured in `.acp.config.json`:
 
 ---
 
+## 12. Type Annotations (RFC-0008)
+
+### 12.1 Overview
+
+RFC-0008 introduces optional type syntax within ACP annotations, enabling developers to document parameter and return types directly in `@acp:param` and `@acp:returns` annotations. This provides:
+
+- **Self-documenting types**: Type information embedded directly in annotations
+- **Language-agnostic syntax**: Consistent type notation across all programming languages
+- **Backward compatibility**: Types are fully optional; existing annotations remain valid
+- **AI context**: Type information helps AI understand function contracts
+
+**Key principle**: ACP type annotations are documentation, not enforcement. They do not perform runtime type checking or static analysis.
+
+### 12.2 Type Annotation Syntax
+
+#### 12.2.1 Parameter Types
+
+**Syntax**: `@acp:param {Type} name - directive`
+
+The type expression appears in curly braces `{}` after `@acp:param` and before the parameter name.
+
+**Basic example**:
+```typescript
+/**
+ * @acp:param {string} userId - Ensure userId is a valid user identifier
+ * @acp:param {number} limit - Must be positive integer, defaults to 10
+ */
+function getOrders(userId: string, limit: number) { }
+```
+
+**Optional parameters**:
+```typescript
+/**
+ * @acp:param {string} userId - Required user identifier
+ * @acp:param {number} [limit] - Optional limit parameter
+ * @acp:param {number} [offset=0] - Optional offset with default value
+ */
+function search(userId: string, limit?: number, offset: number = 0) { }
+```
+
+**Syntax elements**:
+- `{Type}` - Type expression in curly braces (optional)
+- `[name]` - Square brackets indicate optional parameter
+- `[name=default]` - Optional parameter with default value
+- `name` - Parameter name (required)
+- ` - directive` - Self-documenting directive (required)
+
+#### 12.2.2 Return Types
+
+**Syntax**: `@acp:returns {Type} - directive`
+
+```typescript
+/**
+ * @acp:returns {Promise<User | null>} - Returns user object or null if not found
+ */
+async function findUser(id: string): Promise<User | null> { }
+```
+
+#### 12.2.3 Generic Type Parameters
+
+**Syntax**: `@acp:template T [extends Constraint] - directive`
+
+Declares generic type parameters for a function or class:
+
+```typescript
+/**
+ * @acp:template T extends BaseEntity - Entity type for the repository
+ * @acp:template K - Key type for lookup
+ * @acp:param {K} key - Lookup key
+ * @acp:returns {Promise<T | null>} - Found entity or null
+ */
+async function find<T extends BaseEntity, K>(key: K): Promise<T | null> { }
+```
+
+### 12.3 Type Expression Grammar
+
+#### 12.3.1 EBNF Grammar
+
+```ebnf
+(* Type Expression Grammar - RFC-0008 *)
+
+type_expression    = union_type ;
+
+union_type         = intersection_type , { "|" , intersection_type } ;
+
+intersection_type  = primary_type , { "&" , primary_type } ;
+
+primary_type       = primitive_type
+                   | literal_type
+                   | array_type
+                   | tuple_type
+                   | object_type
+                   | function_type
+                   | generic_type
+                   | reference_type
+                   | optional_type
+                   | "(" , type_expression , ")" ;
+
+primitive_type     = "string" | "number" | "boolean" | "null" | "undefined"
+                   | "void" | "any" | "never" | "unknown" | "object" | "symbol"
+                   | "bigint" ;
+
+literal_type       = string_literal | number_literal | "true" | "false" ;
+
+string_literal     = '"' , { any_char - '"' } , '"'
+                   | "'" , { any_char - "'" } , "'" ;
+
+number_literal     = [ "-" ] , digit , { digit } , [ "." , digit , { digit } ] ;
+
+array_type         = primary_type , "[]"
+                   | "Array" , "<" , type_expression , ">" ;
+
+tuple_type         = "[" , [ type_expression , { "," , type_expression } ] , "]" ;
+
+object_type        = "{" , [ property , { "," , property } ] , "}" ;
+
+property           = identifier , [ "?" ] , ":" , type_expression ;
+
+function_type      = "(" , [ param , { "," , param } ] , ")" , "=>" , type_expression ;
+
+param              = identifier , [ "?" ] , ":" , type_expression ;
+
+generic_type       = identifier , "<" , type_expression , { "," , type_expression } , ">" ;
+
+reference_type     = identifier , { "." , identifier } ;
+
+optional_type      = primary_type , "?" ;
+
+identifier         = letter , { letter | digit | "_" } ;
+
+(* Character classes *)
+letter             = "a" | "b" | ... | "z" | "A" | "B" | ... | "Z" ;
+digit              = "0" | "1" | ... | "9" ;
+any_char           = ? any Unicode character ? ;
+```
+
+#### 12.3.2 Operator Precedence
+
+| Precedence | Operator | Description |
+|------------|----------|-------------|
+| 1 (highest) | `[]`, `?` | Array suffix, optional suffix |
+| 2 | `<>` | Generic type arguments |
+| 3 | `&` | Intersection |
+| 4 (lowest) | `\|` | Union |
+
+Parentheses `()` can be used to override precedence.
+
+### 12.4 Supported Type Constructs
+
+#### 12.4.1 Primitive Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `string` | Text values | `@acp:param {string} name` |
+| `number` | Numeric values (int/float) | `@acp:param {number} count` |
+| `boolean` | True/false values | `@acp:param {boolean} active` |
+| `null` | Null value | `@acp:returns {User \| null}` |
+| `undefined` | Undefined value | `@acp:returns {string \| undefined}` |
+| `void` | No return value | `@acp:returns {void}` |
+| `any` | Any type (escape hatch) | `@acp:param {any} data` |
+| `never` | Never returns | `@acp:returns {never}` |
+| `unknown` | Unknown type (safe any) | `@acp:param {unknown} input` |
+| `object` | Any object | `@acp:param {object} config` |
+| `symbol` | Symbol value | `@acp:param {symbol} key` |
+| `bigint` | Big integer | `@acp:param {bigint} id` |
+
+#### 12.4.2 Literal Types
+
+```typescript
+/**
+ * @acp:param {"asc" | "desc"} direction - Sort direction
+ * @acp:param {200 | 201 | 204} statusCode - Success status codes
+ * @acp:param {true} enabled - Must be true
+ */
+```
+
+#### 12.4.3 Array Types
+
+Two equivalent syntaxes:
+
+```typescript
+/**
+ * @acp:param {string[]} tags - Array of tag strings
+ * @acp:param {Array<number>} scores - Array of numeric scores
+ * @acp:param {(User | Admin)[]} users - Array of user or admin objects
+ */
+```
+
+#### 12.4.4 Tuple Types
+
+Fixed-length arrays with specific element types:
+
+```typescript
+/**
+ * @acp:returns {[string, number]} - Returns [name, age] tuple
+ * @acp:returns {[User, Token, Date]} - Returns authentication result tuple
+ */
+```
+
+#### 12.4.5 Union Types
+
+One of multiple types:
+
+```typescript
+/**
+ * @acp:param {string | number} id - ID can be string or number
+ * @acp:returns {User | null} - Returns user or null if not found
+ * @acp:returns {"success" | "error" | "pending"} - Status literal union
+ */
+```
+
+#### 12.4.6 Intersection Types
+
+Combination of multiple types:
+
+```typescript
+/**
+ * @acp:param {User & { admin: boolean }} adminUser - User with admin flag
+ * @acp:returns {BaseResponse & ErrorDetails} - Combined response type
+ */
+```
+
+#### 12.4.7 Object Types
+
+Inline object structure:
+
+```typescript
+/**
+ * @acp:param {{ name: string, age?: number }} user - User object
+ * @acp:returns {{ id: string, items: Product[], total: number }} - Cart state
+ */
+```
+
+#### 12.4.8 Function Types
+
+Callable signatures:
+
+```typescript
+/**
+ * @acp:param {(item: T) => boolean} predicate - Filter predicate function
+ * @acp:param {(error: Error) => void} errorHandler - Error callback
+ * @acp:returns {() => void} - Returns cleanup function
+ */
+```
+
+#### 12.4.9 Generic Types
+
+Parameterized types:
+
+```typescript
+/**
+ * @acp:param {Promise<User>} userPromise - Promise resolving to user
+ * @acp:param {Map<string, number>} scores - Map of names to scores
+ * @acp:param {Record<string, unknown>} metadata - Key-value metadata
+ * @acp:returns {Observable<Event[]>} - Observable of event arrays
+ */
+```
+
+#### 12.4.10 Optional Type Suffix
+
+Types can be marked optional with `?`:
+
+```typescript
+/**
+ * @acp:param {string?} name - Optional name (equivalent to string | undefined)
+ */
+```
+
+### 12.5 Type Mapping Table
+
+ACP types map to language-specific types as follows:
+
+| ACP Type | TypeScript | Python | Rust | Go | Java |
+|----------|------------|--------|------|----|----|
+| `string` | `string` | `str` | `String` | `string` | `String` |
+| `number` | `number` | `int \| float` | `f64` | `float64` | `double` |
+| `boolean` | `boolean` | `bool` | `bool` | `bool` | `boolean` |
+| `null` | `null` | `None` | `None` | `nil` | `null` |
+| `void` | `void` | `None` | `()` | `(empty)` | `void` |
+| `any` | `any` | `Any` | `dyn Any` | `interface{}` | `Object` |
+| `T[]` | `T[]` | `list[T]` | `Vec<T>` | `[]T` | `List<T>` |
+| `[T, U]` | `[T, U]` | `tuple[T, U]` | `(T, U)` | N/A | N/A |
+| `T \| U` | `T \| U` | `T \| U` | `enum` | N/A | N/A |
+| `Promise<T>` | `Promise<T>` | `Awaitable[T]` | `Future<T>` | N/A | `CompletableFuture<T>` |
+| `Map<K, V>` | `Map<K, V>` | `dict[K, V]` | `HashMap<K, V>` | `map[K]V` | `Map<K, V>` |
+
+**Note**: This mapping is advisory for documentation purposes. AI systems SHOULD use this mapping when generating or interpreting code.
+
+### 12.6 Cache Integration
+
+Type information extracted from annotations is stored in the `type_info` field of symbol entries:
+
+```json
+{
+  "symbols": {
+    "src/auth/session.ts:validateSession": {
+      "name": "validateSession",
+      "type": "function",
+      "type_info": {
+        "params": [
+          {
+            "name": "token",
+            "type": "string",
+            "typeSource": "acp",
+            "directive": "JWT token string to validate"
+          },
+          {
+            "name": "options",
+            "type": "ValidateOptions",
+            "typeSource": "acp",
+            "optional": true,
+            "default": "{}",
+            "directive": "Optional validation options"
+          }
+        ],
+        "returns": {
+          "type": "Promise<Session | null>",
+          "typeSource": "acp",
+          "directive": "Session object or null if invalid"
+        },
+        "typeParams": [
+          {
+            "name": "T",
+            "constraint": "BaseSession",
+            "directive": "Session type extending BaseSession"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+#### 12.6.1 type_info Structure
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `params` | `ParamInfo[]` | Parameter type information |
+| `returns` | `ReturnInfo` | Return type information |
+| `typeParams` | `TypeParam[]` | Generic type parameters |
+
+#### 12.6.2 ParamInfo Structure
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | `string` | Yes | Parameter name |
+| `type` | `string` | No | Type expression |
+| `typeSource` | `"acp" \| "inferred" \| "native"` | No | Where type came from |
+| `optional` | `boolean` | No | Whether parameter is optional |
+| `default` | `string` | No | Default value if optional |
+| `directive` | `string` | No | Directive text for this param |
+
+#### 12.6.3 ReturnInfo Structure
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | `string` | No | Return type expression |
+| `typeSource` | `"acp" \| "inferred" \| "native"` | No | Where type came from |
+| `directive` | `string` | No | Directive text for return |
+
+#### 12.6.4 TypeParam Structure
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | `string` | Yes | Type parameter name |
+| `constraint` | `string` | No | Constraint type (extends) |
+| `directive` | `string` | No | Directive text |
+
+#### 12.6.5 typeSource Values
+
+| Value | Description | Example |
+|-------|-------------|---------|
+| `acp` | Type from `@acp:param {Type}` annotation | Explicit ACP annotation |
+| `inferred` | Type inferred from source code analysis | Function signature parsing |
+| `native` | Type bridged from JSDoc/docstring/etc. | `@param {string}` in JSDoc |
+
+### 12.7 Backward Compatibility
+
+Type annotations are fully optional. Existing annotations without types remain valid:
+
+```typescript
+// Old syntax (still valid)
+/**
+ * @acp:param token - JWT token to validate
+ * @acp:returns - Session or null
+ */
+
+// New syntax with types
+/**
+ * @acp:param {string} token - JWT token to validate
+ * @acp:returns {Session | null} - Session or null
+ */
+
+// Mixed syntax (also valid)
+/**
+ * @acp:param {string} token - JWT token to validate
+ * @acp:param options - Optional validation settings (no type)
+ */
+```
+
+### 12.8 Examples
+
+#### 12.8.1 Complete Function Documentation
+
+```typescript
+/**
+ * @acp:fn "Creates a new user account" - Use this understanding when calling
+ * @acp:template T extends BaseUser - User type for response
+ * @acp:param {string} email - Valid email address for the new user
+ * @acp:param {string} password - Password meeting security requirements
+ * @acp:param {Partial<T>} [profile={}] - Optional profile data
+ * @acp:returns {Promise<T>} - Created user object with generated ID
+ * @acp:throws {ValidationError} - When email or password invalid
+ * @acp:throws {ConflictError} - When email already exists
+ */
+async function createUser<T extends BaseUser>(
+  email: string,
+  password: string,
+  profile: Partial<T> = {}
+): Promise<T> { }
+```
+
+#### 12.8.2 Complex Type Expressions
+
+```typescript
+/**
+ * @acp:param {Map<string, Set<number>>} graph - Adjacency list representation
+ * @acp:param {(node: string, edges: number[]) => boolean} visitor - Node visitor
+ * @acp:returns {Promise<{ visited: string[], path: [string, string][] }>} - Traversal result
+ */
+async function traverseGraph(
+  graph: Map<string, Set<number>>,
+  visitor: (node: string, edges: number[]) => boolean
+): Promise<{ visited: string[], path: [string, string][] }> { }
+```
+
+#### 12.8.3 Python Example
+
+```python
+"""
+@acp:fn "Processes batch of items" - Use for bulk operations
+@acp:template T extends Processable - Item type constraint
+@acp:param {list[T]} items - Items to process
+@acp:param {int} [batch_size=100] - Items per batch
+@acp:param {(T) => bool} [filter] - Optional filter predicate
+@acp:returns {AsyncIterator[ProcessResult[T]]} - Async results iterator
+"""
+async def process_batch(
+    items: list[T],
+    batch_size: int = 100,
+    filter: Callable[[T], bool] | None = None
+) -> AsyncIterator[ProcessResult[T]]:
+    pass
+```
+
+### 12.9 Error Handling
+
+#### 12.9.1 Type Parse Errors
+
+| Error | Cause | Recovery |
+|-------|-------|----------|
+| `E301` Unclosed type brace | Missing `}` in type expression | Skip type, use annotation without type |
+| `E302` Invalid type syntax | Malformed type expression | Skip type, warn |
+| `E303` Empty type | `{}` with no content | Skip type, warn |
+| `E304` Unclosed generic | Missing `>` in generic type | Skip type, warn |
+
+**Error Behavior:**
+- Type parsing errors SHOULD NOT fail the entire annotation parse
+- Invalid types are skipped; annotation is preserved without type info
+- Warning is emitted for debugging
+
+#### 12.9.2 Validation Warnings
+
+| Warning | Cause | Recommendation |
+|---------|-------|----------------|
+| `W301` Complex nested type | Deeply nested type (>4 levels) | Consider simplifying or using type alias |
+| `W302` Very long type | Type expression >200 characters | Consider using type alias |
+| `W303` Unknown generic | Generic type not recognized | Verify type name spelling |
+
+### 12.10 Best Practices
+
+1. **Use types consistently**: If typing one parameter, consider typing all parameters
+2. **Prefer simple types**: Use type aliases for complex expressions
+3. **Match source types**: ACP types should reflect actual code types
+4. **Document constraints**: Use directives to explain type constraints
+5. **Consider tooling**: Types enable better IDE integration and AI assistance
+
+---
+
 ## Appendix A: Quick Reference
 
 ### File-Level Annotations
@@ -1676,6 +2166,17 @@ Provenance settings are configured in `.acp.config.json`:
 | `@acp:source-confidence` | Yes | Confidence score (0.0-1.0) |
 | `@acp:source-reviewed` | Yes | Human review status |
 | `@acp:source-id` | Yes | Generation batch identifier |
+
+### Type Annotations (RFC-0008)
+
+| Annotation | Directive Required | Description |
+|------------|-------------------|-------------|
+| `@acp:param {Type} name` | Yes | Parameter with type |
+| `@acp:param {Type} [name]` | Yes | Optional parameter with type |
+| `@acp:param {Type} [name=default]` | Yes | Optional parameter with default |
+| `@acp:returns {Type}` | Yes | Return type |
+| `@acp:template T` | Yes | Generic type parameter |
+| `@acp:template T extends Constraint` | Yes | Constrained type parameter |
 
 For full constraint annotation details, see [Constraint System](constraints.md).
 
