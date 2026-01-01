@@ -1,5 +1,7 @@
 # Complete ACP Example
 
+**Updated for ACP 1.3.0 (RFC-0015)**
+
 This document demonstrates a full-featured ACP setup with all major features.
 
 ---
@@ -463,8 +465,8 @@ export function generateId(): string {
 **`.acp.cache.json`** (partial)
 ```json
 {
-  "version": "1.0.0",
-  "generated_at": "2024-12-18T15:30:00Z",
+  "version": "1.1.0",
+  "generated_at": "2026-01-01T15:30:00Z",
   "git_commit": "abc123def456789",
   "project": {
     "name": "ecommerce-api",
@@ -474,13 +476,28 @@ export function generateId(): string {
   "stats": {
     "files": 10,
     "symbols": 25,
-    "lines": 450
+    "lines": 450,
+    "primary_language": "TypeScript",
+    "languages": [
+      { "name": "TypeScript", "files": 10, "percentage": 100 }
+    ]
+  },
+  "conventions": {
+    "file_naming": [
+      { "directory": "src/auth", "pattern": "*.ts", "confidence": 1.0 },
+      { "directory": "src/billing", "pattern": "*.ts", "confidence": 1.0 },
+      { "directory": "src/api", "pattern": "*.ts", "confidence": 1.0 }
+    ],
+    "imports": {
+      "module_system": "esm",
+      "path_style": "relative"
+    }
   },
   "source_files": {
-    "src/auth/session.ts": "2024-12-18T14:00:00Z",
-    "src/auth/jwt.ts": "2024-12-18T14:00:00Z",
-    "src/billing/payment.ts": "2024-12-15T10:00:00Z",
-    "src/api/middleware.ts": "2024-12-18T12:00:00Z"
+    "src/auth/session.ts": "2026-01-01T14:00:00Z",
+    "src/auth/jwt.ts": "2026-01-01T14:00:00Z",
+    "src/billing/payment.ts": "2025-12-15T10:00:00Z",
+    "src/api/middleware.ts": "2026-01-01T12:00:00Z"
   },
   "files": {
     "src/auth/session.ts": {
@@ -498,7 +515,8 @@ export function generateId(): string {
         "src/auth/session.ts:endSession",
         "src/auth/session.ts:invalidateAllSessions"
       ],
-      "imports": ["./jwt", "../db/sessions"]
+      "imports": ["./jwt", "../db/sessions"],
+      "imported_by": ["src/api/middleware.ts"]
     },
     "src/billing/payment.ts": {
       "path": "src/billing/payment.ts",
@@ -513,7 +531,8 @@ export function generateId(): string {
         "src/billing/payment.ts:processPayment",
         "src/billing/payment.ts:processRefund"
       ],
-      "imports": ["stripe"]
+      "imports": ["stripe"],
+      "imported_by": ["src/api/handlers.ts"]
     }
   },
   "symbols": {
@@ -725,30 +744,90 @@ is calling it correctly.
 
 ---
 
+## RFC-0015: Primer and Context Commands
+
+### Generate Tiered Primer
+
+```bash
+# Get standard tier AI context
+acp primer --budget 500
+
+# Get full tier with JSON output
+acp primer --budget 800 --json
+
+# Preview tier selection
+acp primer --budget 600 --explain --preview
+```
+
+### Operation-Specific Context
+
+```bash
+# Before creating a new file - get naming conventions
+acp context create --directory src/auth
+
+# Before modifying a file - get constraints and dependencies
+acp context modify --file src/auth/session.ts
+
+# Debug session - get related files and symbols
+acp context debug --file src/auth/session.ts
+
+# Explore project structure
+acp context explore
+```
+
+### Example Context Output
+
+```bash
+$ acp context modify --file src/auth/session.ts
+```
+
+```
+File: src/auth/session.ts
+Lock Level: restricted
+Lock Reason: Security critical - all changes require security review
+Style: google-typescript
+Behavior: conservative
+
+Imported By:
+  - src/api/middleware.ts
+
+Related Symbols:
+  - validateSession (lines 18-23)
+  - startSession (lines 26-29)
+
+Action Required: Explain proposed changes and wait for approval
+```
+
+---
+
 ## AI Workflow Example
+
+*(Updated for RFC-0015)*
 
 1. **User Request:** "Fix the authentication bug causing 401 errors"
 
-2. **AI Queries Context:**
-   ```
-   acp_query(type="domain", name="authentication")
+2. **AI Gets Context (RFC-0015):**
+   ```bash
+   acp context modify --file src/auth/session.ts
    ```
 
-3. **AI Checks Constraints:**
-   ```
-   acp_constraints(file="src/auth/session.ts")
-   ```
-   Response: `{ "lock_level": "restricted", "approval_needed": true }`
+3. **AI Checks Response:**
+   - `lock_level: restricted`
+   - `imported_by: ["src/api/middleware.ts"]`
+   - `action_required: approval`
 
 4. **AI Response:**
    ```
    I found the authentication domain files. Before modifying src/auth/session.ts,
    I need to note that this file is marked as "restricted" because it's
    security-critical code.
-   
+
+   This file is imported by src/api/middleware.ts, so changes may affect
+   the authentication middleware.
+
    I'll explain the proposed changes first:
    [detailed explanation]
-   
+
    Do you approve these changes?
    ```
 

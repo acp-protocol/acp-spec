@@ -1,5 +1,7 @@
 # Minimal ACP Example
 
+**Updated for ACP 1.3.0 (RFC-0015)**
+
 This document demonstrates the minimum viable ACP setup. Use this as a starting point for new projects.
 
 ---
@@ -39,8 +41,8 @@ Running `acp index` produces this minimal cache:
 **`.acp.cache.json`**
 ```json
 {
-  "version": "1.0.0",
-  "generated_at": "2024-12-18T12:00:00Z",
+  "version": "1.1.0",
+  "generated_at": "2026-01-01T12:00:00Z",
   "project": {
     "name": "minimal-example",
     "root": "/home/user/minimal-example"
@@ -48,10 +50,21 @@ Running `acp index` produces this minimal cache:
   "stats": {
     "files": 1,
     "symbols": 1,
-    "lines": 8
+    "lines": 8,
+    "primary_language": "TypeScript",
+    "languages": [
+      { "name": "TypeScript", "files": 1, "percentage": 100 }
+    ]
+  },
+  "conventions": {
+    "file_naming": [],
+    "imports": {
+      "module_system": "esm",
+      "path_style": "relative"
+    }
   },
   "source_files": {
-    "src/app.ts": "2024-12-18T11:55:00Z"
+    "src/app.ts": "2026-01-01T11:55:00Z"
   },
   "files": {
     "src/app.ts": {
@@ -64,7 +77,8 @@ Running `acp index` produces this minimal cache:
       "layer": null,
       "stability": null,
       "exports": ["src/app.ts:main"],
-      "imports": []
+      "imports": [],
+      "imported_by": []
     }
   },
   "symbols": {
@@ -94,6 +108,12 @@ Running `acp index` produces this minimal cache:
   }
 }
 ```
+
+**New RFC-0015 fields:**
+- `stats.primary_language` — Dominant language in the project
+- `stats.languages` — Language breakdown with file counts
+- `conventions` — Detected naming patterns and import style
+- `imported_by` — Reverse import tracking (which files import this one)
 
 ---
 
@@ -222,6 +242,8 @@ From this minimal setup, you can:
 2. **Add configuration** — Create `.acp.config.json` for custom settings
 3. **Add variables** — Run `acp vars` to generate `.acp.vars.json`
 4. **Set up MCP** — Enable AI assistant integration
+5. **Generate primers** — Run `acp primer --budget 500` for AI bootstrap context
+6. **Get context** — Run `acp context explore` to understand project structure
 
 ---
 
@@ -264,6 +286,15 @@ acp index --vars
 
 # Validate cache
 acp validate .acp.cache.json
+
+# Generate AI primer (RFC-0015)
+acp primer --budget 500
+
+# Get project overview (RFC-0015)
+acp context explore
+
+# Get context before modifying a file (RFC-0015)
+acp context modify --file src/app.ts
 ```
 
 ---

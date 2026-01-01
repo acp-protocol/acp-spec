@@ -13,7 +13,7 @@
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+",
       "description": "Primer schema version (semver)",
-      "examples": ["1.0.0"]
+      "examples": ["1.1.0"]
     },
     "metadata": {
       "$ref": "#/$defs/metadata"
@@ -43,6 +43,9 @@
     },
     "knowledgeStore": {
       "$ref": "#/$defs/knowledgeStore"
+    },
+    "tiers": {
+      "$ref": "#/$defs/tierConfiguration"
     }
   },
   "required": ["version", "sections"],
@@ -769,6 +772,124 @@
         }
       },
       "required": ["id", "content"],
+      "additionalProperties": false
+    },
+
+    "tierConfiguration": {
+      "type": "object",
+      "description": "Primer tier system configuration (RFC-0015)",
+      "properties": {
+        "thresholds": {
+          "type": "object",
+          "description": "Token budget thresholds for tier selection",
+          "properties": {
+            "micro": {
+              "type": "integer",
+              "default": 300,
+              "description": "Maximum tokens for Micro tier"
+            },
+            "minimal": {
+              "type": "integer",
+              "default": 450,
+              "description": "Maximum tokens for Minimal tier"
+            },
+            "standard": {
+              "type": "integer",
+              "default": 700,
+              "description": "Maximum tokens for Standard tier"
+            },
+            "full": {
+              "type": "integer",
+              "default": 1500,
+              "description": "Token target for Full tier"
+            }
+          },
+          "additionalProperties": false
+        },
+        "definitions": {
+          "type": "object",
+          "description": "Tier-specific template definitions",
+          "additionalProperties": {
+            "$ref": "#/$defs/tierDefinition"
+          }
+        },
+        "default": {
+          "type": "string",
+          "enum": ["micro", "minimal", "standard", "full"],
+          "default": "standard",
+          "description": "Default tier when budget not specified"
+        },
+        "mcpReduction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.2,
+          "description": "Token reduction factor for MCP context (0.2 = 20% smaller)"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "tierDefinition": {
+      "type": "object",
+      "description": "Definition for a single primer tier",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable tier name"
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum tokens for this tier"
+        },
+        "template": {
+          "type": "string",
+          "description": "Template file path or inline template for CLI output"
+        },
+        "mcpTemplate": {
+          "type": "string",
+          "description": "Template for MCP context (reduced tokens)"
+        },
+        "sections": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Section IDs to include in this tier"
+        },
+        "features": {
+          "type": "object",
+          "description": "Feature flags for this tier",
+          "properties": {
+            "protectedFiles": {
+              "type": "boolean",
+              "default": false,
+              "description": "Include protected files list"
+            },
+            "hotpaths": {
+              "type": "boolean",
+              "default": false,
+              "description": "Include hotpaths for sensitive code"
+            },
+            "namingConventions": {
+              "type": "boolean",
+              "default": false,
+              "description": "Include naming conventions table"
+            },
+            "domains": {
+              "type": "boolean",
+              "default": false,
+              "description": "Include domain structure"
+            },
+            "architecture": {
+              "type": "boolean",
+              "default": false,
+              "description": "Include architecture overview"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["name", "maxTokens"],
       "additionalProperties": false
     }
   }

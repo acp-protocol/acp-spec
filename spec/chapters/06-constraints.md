@@ -1,9 +1,9 @@
 # Constraint System Specification
 
-**ACP Version**: 1.0.0-revised
-**Document Version**: 1.0.0
-**Last Updated**: 2024-12-17
-**Status**: Revised Draft
+**ACP Version**: 1.3.0
+**Document Version**: 1.1.0
+**Last Updated**: 2026-01-01
+**Status**: RFC-0015 Compliant
 
 ---
 
@@ -16,7 +16,8 @@
 5. [Quality Constraints](#5-quality-constraints)
 6. [Constraint Violations](#6-constraint-violations)
 7. [Constraint Merging](#7-constraint-merging)
-8. [Examples](#8-examples)
+8. [Primer Integration](#8-primer-integration) *(RFC-0015)*
+9. [Examples](#9-examples)
 
 ---
 
@@ -482,9 +483,60 @@ See [Inheritance & Cascade Specification](inheritance.md) for complete merging d
 
 ---
 
-## 8. Examples
+## 8. Primer Integration
 
-### 8.1 Security-Critical File
+*(RFC-0015)*
+
+Constraints integrate with the primer and context system to provide AI agents with relevant constraint information.
+
+### 8.1 Constraint Surfacing in Context
+
+The `acp context modify` command surfaces constraints for files being modified:
+
+```bash
+acp context modify --file src/auth/login.ts
+```
+
+**Output includes:**
+
+| Field | Source | Description |
+|-------|--------|-------------|
+| `lock_level` | `@acp:lock` | Merged lock level for the file |
+| `lock_reason` | `@acp:lock-reason` | Justification for the lock |
+| `style` | `@acp:style` | Applicable style guide |
+| `behavior` | `@acp:behavior` | Behavior guidance |
+| `quality` | `@acp:quality` | Quality requirements |
+
+### 8.2 Primer Constraint Prioritization
+
+When generating primers with limited token budgets, constraint-related content is prioritized:
+
+| Tier | Constraint Content |
+|------|-------------------|
+| Micro | Essential safety (frozen/restricted files only) |
+| Minimal | All lock levels and critical style rules |
+| Standard | Lock levels, style guides, behavior constraints |
+| Full | All constraints including quality requirements |
+
+### 8.3 Pre-Edit Workflow Integration
+
+AI agents MUST check constraints before modifying files:
+
+```
+1. Run: acp context modify --file <target>
+2. Check lock_level in response
+3. If frozen: REFUSE to modify
+4. If restricted: Explain changes, wait for approval
+5. Otherwise: Proceed with constraint context
+```
+
+See [Chapter 14: Bootstrap & AI Integration](14-bootstrap.md) for complete workflow details.
+
+---
+
+## 9. Examples
+
+### 9.1 Security-Critical File
 
 ```typescript
 /**
@@ -512,7 +564,7 @@ export class AuthenticationService {
 }
 ```
 
-### 8.2 Generated Code
+### 9.2 Generated Code
 
 ```typescript
 /**
@@ -529,7 +581,7 @@ export interface User {
 }
 ```
 
-### 8.3 Public API
+### 9.3 Public API
 
 ```typescript
 /**
@@ -574,6 +626,8 @@ export interface ApiResponse<T> {
 - [Cache Format](cache.md) - How constraints are indexed
 - [Debug Sessions](debug-sessions.md) - Debug and hack tracking
 - [Inheritance & Cascade](inheritance.md) - Constraint inheritance rules
+- [Bootstrap & AI Integration](14-bootstrap.md) - Pre-edit workflow and `acp context` command (RFC-0015)
+- [Tool Integration](11-tool-integration.md) - Primer system and constraint prioritization (RFC-0015)
 - [Configuration](config.md) - Constraint configuration
 
 ---

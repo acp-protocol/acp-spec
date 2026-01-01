@@ -10,7 +10,7 @@
       "type": "string",
       "description": "ACP specification version",
       "pattern": "^\\d+\\.\\d+\\.\\d+",
-      "examples": ["1.0.0"]
+      "examples": ["1.1.0"]
     },
     "generated_at": {
       "type": "string",
@@ -60,6 +60,40 @@
           "type": "integer",
           "minimum": 0,
           "description": "Total lines of code"
+        },
+        "languages": {
+          "type": "array",
+          "description": "Language distribution statistics (RFC-0015)",
+          "items": {
+            "type": "object",
+            "required": ["name", "files", "percentage"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Programming language identifier"
+              },
+              "files": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Number of files in this language"
+              },
+              "percentage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "Percentage of total files"
+              }
+            }
+          }
+        },
+        "primary_language": {
+          "type": "string",
+          "description": "Primary language of the project (highest percentage) (RFC-0015)"
+        },
+        "indexed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the cache was last indexed (RFC-0015)"
         }
       }
     },
@@ -312,6 +346,66 @@
                 "type": "string",
                 "description": "Why the reference could not be resolved"
               }
+            }
+          }
+        }
+      }
+    },
+    "conventions": {
+      "type": "object",
+      "description": "Auto-detected naming and import conventions (RFC-0015)",
+      "properties": {
+        "file_naming": {
+          "type": "array",
+          "description": "File naming patterns detected per directory",
+          "items": {
+            "type": "object",
+            "required": ["directory", "pattern", "confidence"],
+            "properties": {
+              "directory": {
+                "type": "string",
+                "description": "Relative directory path"
+              },
+              "pattern": {
+                "type": "string",
+                "description": "Glob-style naming pattern (e.g., '*.ts', '*.route.ts')"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Detection confidence (0.0-1.0, threshold 0.7)"
+              },
+              "examples": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Example filenames matching this pattern"
+              },
+              "anti_patterns": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Similar patterns NOT used (to avoid confusion)"
+              }
+            }
+          }
+        },
+        "imports": {
+          "type": "object",
+          "description": "Import/module style conventions",
+          "properties": {
+            "module_system": {
+              "type": "string",
+              "enum": ["esm", "commonjs", "mixed"],
+              "description": "JavaScript/TypeScript module system"
+            },
+            "path_style": {
+              "type": "string",
+              "enum": ["relative", "absolute", "alias", "mixed"],
+              "description": "Import path style preference"
+            },
+            "index_exports": {
+              "type": "boolean",
+              "description": "Whether index files re-export from subdirectories"
             }
           }
         }
@@ -683,6 +777,14 @@
           },
           "default": [],
           "description": "Imported modules"
+        },
+        "importedBy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "RFC-0015: Files that import this file (reverse import graph)"
         },
         "ai_hints": {
           "type": "array",

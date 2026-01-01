@@ -1,8 +1,8 @@
 # AI Context Protocol (ACP) Specification
 
-**Version**: 1.2.0
-**Date**: 2025-12-21
-**Status**: RFC-001 Compliant
+**Version**: 1.3.0
+**Date**: 2026-01-01
+**Status**: RFC-001, RFC-0015 Compliant
 
 ---
 
@@ -52,7 +52,7 @@
 10. [Conformance Levels](#10-conformance-levels)
 11. [Error Handling](#11-error-handling)
 12. [Versioning](#12-versioning)
-13. [Bootstrap & AI Integration](#13-bootstrap--ai-integration) *(RFC-001)*
+13. [Bootstrap & AI Integration](#13-bootstrap--ai-integration) *(RFC-001, RFC-0015)*
 
 **Appendices:**
 - [Appendix A: Complete Annotation Reference](#appendix-a-complete-annotation-reference)
@@ -2031,6 +2031,44 @@ When AI encounters an `@acp:*` annotation:
 | `acp query domain <name>` | Get domain files and relationships            |
 | `acp map <path>`          | Get visual file map with constraints          |
 | `acp knowledge "q"`       | Ask about the codebase                        |
+| `acp primer`              | Generate tiered AI bootstrap context (RFC-0015) |
+| `acp context <operation>` | Get operation-specific context (RFC-0015)     |
+
+### 13.5 Tiered Primer System (RFC-0015)
+
+The primer system provides AI agents with project context at different token budgets:
+
+| Tier     | Budget     | CLI Tokens | Use Case                    |
+|----------|------------|------------|------------------------------|
+| Micro    | <300       | ~250       | Essential safety constraints |
+| Minimal  | 300-449    | ~400       | Core project context         |
+| Standard | 450-699    | ~600       | Balanced context             |
+| Full     | ≥700       | ~1400      | Complete understanding       |
+
+**Usage:**
+```bash
+acp primer --budget 500   # Standard tier
+acp primer --budget 800   # Full tier
+```
+
+### 13.6 Operation-Specific Context (RFC-0015)
+
+The `acp context` command provides context tailored to specific AI operations:
+
+| Operation | Purpose                              | Key Options        |
+|-----------|--------------------------------------|---------------------|
+| `create`  | Context for creating new files       | `--directory`       |
+| `modify`  | Context for modifying existing files | `--file` (required) |
+| `debug`   | Context for debugging issues         | `--file` (required) |
+| `explore` | Context for exploring the project    | *(none)*            |
+
+**Usage:**
+```bash
+acp context create             # Get naming conventions
+acp context modify --file src/auth.ts  # Get constraints and dependencies
+```
+
+See [Chapter 14: Bootstrap & AI Integration](chapters/14-bootstrap.md) for complete details.
 
 ---
 
@@ -2847,6 +2885,20 @@ See documentation for current list and contribution guidelines.
 ---
 
 ## Changelog
+
+### 1.3.0 (2026-01-01) - RFC-0015 Primer System Redesign
+
+#### Added
+- **Section 13.5**: Tiered Primer System with 4-tier budget-based selection (micro, minimal, standard, full)
+- **Section 13.6**: Operation-Specific Context (`acp context` command with create, modify, debug, explore operations)
+- **CLI Commands**: Added `acp primer` and `acp context <operation>` to Section 13.4
+- **Cache enhancements**: `conventions` section for naming patterns, `imported_by` tracking, enhanced `stats`
+- **IDE detection**: Automatic detection of IDE environments (Cursor, VS Code, Cline, JetBrains, Zed)
+- **Foundation prompt**: `--standalone` flag for raw API usage
+
+#### Changed
+- Updated specification status to include RFC-0015 compliance
+- Section 13 (Bootstrap & AI Integration) updated with tiered primer references
 
 ### 1.2.0 (2025-12-21) - Complete File Format Documentation
 

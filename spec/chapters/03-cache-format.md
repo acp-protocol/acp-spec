@@ -1,9 +1,9 @@
 # Cache File Format Specification
 
 **ACP Version**: 1.0.0
-**Document Version**: 1.3.0
-**Last Updated**: 2025-12-26
-**Status**: RFC-001, RFC-0002, RFC-0003, RFC-0008 Compliant
+**Document Version**: 1.4.0
+**Last Updated**: 2025-12-31
+**Status**: RFC-001, RFC-0002, RFC-0003, RFC-0008, RFC-0015 Compliant
 
 ---
 
@@ -11,8 +11,8 @@
 
 1. [Overview](#1-overview)
 2. [File Format](#2-file-format)
-3. [Root Structure](#3-root-structure) - Updated with `documentation` index (RFC-0002), `provenance` statistics (RFC-0003)
-4. [File Entries](#4-file-entries) - Updated with `purpose`, `owner`, `inline`, `refs`, `style`, `annotations` (RFC-0003)
+3. [Root Structure](#3-root-structure) - Updated with `conventions` (RFC-0015), `documentation` (RFC-0002), `provenance` (RFC-0003)
+4. [File Entries](#4-file-entries) - Updated with `imported_by` (RFC-0015), `purpose`, `owner`, `inline`, `refs`, `style`, `annotations` (RFC-0003)
 5. [Symbol Entries](#5-symbol-entries) - Updated with `purpose`, `params`, `returns`, `throws`, `constraints`, `annotations` (RFC-0003), `type_info` (RFC-0008)
 6. [Call Graph](#6-call-graph)
 7. [Domain Index](#7-domain-index)
@@ -99,6 +99,7 @@ The cache file MUST conform to the JSON Schema at:
   "project": { },
   "stats": { },
   "source_files": { },
+  "conventions": { },
   "files": { },
   "symbols": { },
   "annotations": { },
@@ -114,6 +115,7 @@ The cache file MUST conform to the JSON Schema at:
 - The `annotations` section is new in RFC-001 and stores all annotations with their directives.
 - The `documentation` section is new in RFC-0002 and stores the project-wide documentation index.
 - The `provenance` section is new in RFC-0003 and stores annotation provenance statistics.
+- The `conventions` section is new in RFC-0015 and stores detected naming and import conventions.
 
 ### 3.2 Field Definitions
 
@@ -165,14 +167,20 @@ Project metadata.
 
 #### `stats` (required)
 
-Aggregate statistics.
+Aggregate statistics including language analysis (RFC-0015).
 
 ```json
 {
   "stats": {
     "files": 127,
     "symbols": 843,
-    "lines": 24521
+    "lines": 24521,
+    "primary_language": "TypeScript",
+    "languages": [
+      { "name": "TypeScript", "files": 110, "percentage": 87 },
+      { "name": "JavaScript", "files": 12, "percentage": 9 },
+      { "name": "JSON", "files": 5, "percentage": 4 }
+    ]
   }
 }
 ```
@@ -182,6 +190,16 @@ Aggregate statistics.
 | `files` | integer | Yes | Total indexed files |
 | `symbols` | integer | Yes | Total indexed symbols |
 | `lines` | integer | Yes | Total lines of code |
+| `primary_language` | string | No | Dominant programming language (RFC-0015) |
+| `languages` | array[object] | No | Language distribution (RFC-0015) |
+
+**Language Entry Fields (RFC-0015):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Language name |
+| `files` | integer | Number of files in this language |
+| `percentage` | integer | Percentage of total files (0-100) |
 
 #### `source_files` (required)
 
@@ -198,6 +216,67 @@ Map of file paths to modification times for staleness detection.
 
 - Keys: Relative file paths
 - Values: ISO 8601 timestamps (last modification time)
+
+#### `conventions` (RFC-0015)
+
+Project-wide conventions detected from codebase analysis. Used by `acp context create` to provide naming and import guidance.
+
+```json
+{
+  "conventions": {
+    "file_naming": [
+      {
+        "directory": "src/components",
+        "pattern": "PascalCase",
+        "extension": ".tsx",
+        "confidence": 0.95,
+        "examples": ["UserProfile.tsx", "LoginForm.tsx"],
+        "anti_patterns": ["UPPER_CASE", "snake_case"]
+      },
+      {
+        "directory": "src/hooks",
+        "pattern": "camelCase",
+        "extension": ".ts",
+        "confidence": 0.92,
+        "examples": ["useAuth.ts", "useLocalStorage.ts"]
+      }
+    ],
+    "imports": {
+      "module_system": "esm",
+      "path_style": "relative"
+    }
+  }
+}
+```
+
+**File Naming Convention Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `directory` | string | Yes | Directory path (relative to project root) |
+| `pattern` | string | Yes | Naming pattern: `PascalCase`, `camelCase`, `snake_case`, `kebab-case`, `UPPER_CASE` |
+| `extension` | string | No | Common file extension for this directory |
+| `confidence` | number | Yes | Confidence score (0.0-1.0), minimum 0.70 for inclusion |
+| `examples` | array[string] | No | Example filenames matching the pattern |
+| `anti_patterns` | array[string] | No | Patterns NOT used in this directory (negative examples) |
+
+**Import Convention Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `module_system` | string | Module system: `esm` (import/export) or `cjs` (require/module.exports) |
+| `path_style` | string | Import path style: `relative` (../utils) or `absolute` (@/utils, ~/utils) |
+
+**Naming Convention Detection Algorithm:**
+
+1. Group files by directory
+2. For each directory with ≥3 files:
+   a. Analyze filename patterns (ignoring extension)
+   b. Calculate percentage for each pattern type
+   c. If dominant pattern ≥70%, record as convention
+   d. Record non-matching patterns as anti-patterns
+3. Analyze import statements across all files
+4. Determine dominant module system and path style
 
 ---
 
@@ -242,6 +321,7 @@ The `files` object maps relative file paths to file entry objects.
 | `stability` | string | ✗ MAY | null | Stability level: `stable`, `experimental`, `deprecated` |
 | `exports` | array[string] | ⚠ SHOULD | [] | Exported symbols (qualified names) |
 | `imports` | array[string] | ⚠ SHOULD | [] | Imported modules |
+| `imported_by` | array[string] | ✗ MAY | [] | Files that import this module (RFC-0015) |
 | `inline` | array[object] | ✗ MAY | [] | Inline annotations in file - RFC-001 |
 | `refs` | array[object] | ✗ MAY | [] | Documentation references - RFC-0002 |
 | `style` | object | ✗ MAY | null | Style guide configuration - RFC-0002 |
@@ -353,6 +433,51 @@ The `inline` array stores inline annotations (`@acp:critical`, `@acp:todo`, `@ac
 | `ticket` | string | No | Related issue/ticket reference |
 | `expires` | string | No | Expiration date (ISO 8601) for hacks |
 | `auto_generated` | boolean | No | True if directive was auto-generated |
+
+#### `imported_by` Array (RFC-0015)
+
+The `imported_by` array tracks which files import this module. This reverse import graph enables `acp context modify` to show affected files when modifying a module.
+
+```json
+{
+  "imported_by": [
+    "src/api/middleware.ts",
+    "src/routes/login.ts",
+    "src/routes/logout.ts",
+    "src/tests/auth.test.ts"
+  ]
+}
+```
+
+**Purpose:**
+
+- Impact analysis before modification
+- Understanding file dependencies
+- Identifying test coverage
+- Scoping refactoring changes
+
+**Population:**
+
+During indexing, the `imported_by` array is populated by scanning all files' `imports` arrays and building the reverse relationship:
+
+```
+for each file F:
+    for each import I in F.imports:
+        if I is local file:
+            I.imported_by.append(F.path)
+```
+
+**Example Usage with `acp context modify`:**
+
+```bash
+$ acp context modify --file src/auth/session.ts
+
+Imported By (4 files):
+  • src/api/middleware.ts
+  • src/routes/login.ts
+  • src/routes/logout.ts
+  • src/tests/auth.test.ts
+```
 
 #### `annotations` Object (RFC-0003)
 
@@ -1267,6 +1392,8 @@ jq '.symbols | to_entries | group_by(.value.type) | map({type: .[0].value.type, 
 - [Configuration](config.md) - Configuration options
 - [File Discovery](discovery.md) - How cache is built
 - [Inheritance & Cascade](inheritance.md) - Constraint inheritance rules
+- [Tool Integration](11-tool-integration.md) - Primer system and tier-based content selection (RFC-0015)
+- [Bootstrap & AI Integration](14-bootstrap.md) - `acp context` command that uses `conventions` and `imported_by` (RFC-0015)
 
 ---
 

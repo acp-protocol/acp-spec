@@ -1,9 +1,9 @@
 # Query Interface Specification
 
-**ACP Version**: 1.0.0
-**Document Version**: 1.0.0
-**Last Updated**: 2024-12-18
-**Status**: Draft
+**ACP Version**: 1.3.0
+**Document Version**: 1.1.0
+**Last Updated**: 2026-01-01
+**Status**: RFC-0015 Compliant
 
 ---
 
@@ -16,6 +16,7 @@
 5. [Programmatic Access](#5-programmatic-access)
 6. [Query Patterns](#6-query-patterns)
 7. [Performance Considerations](#7-performance-considerations)
+8. [Query vs Context](#8-query-vs-context) *(RFC-0015)*
 
 ---
 
@@ -991,6 +992,56 @@ Queries return stale data if the cache is outdated. Implementations SHOULD:
 
 ---
 
+## 8. Query vs Context
+
+*(RFC-0015)*
+
+RFC-0015 introduced the `acp context` command which complements but is distinct from query operations.
+
+### 8.1 Distinction
+
+| Aspect | `acp query *` | `acp context *` |
+|--------|---------------|-----------------|
+| **Purpose** | Data retrieval from cache | Operation-specific AI context |
+| **Focus** | Specific cache fields | Holistic context for a task |
+| **Output** | Raw data structures | Formatted guidance |
+| **Use Case** | Scripting, tooling | AI agent bootstrap |
+
+### 8.2 When to Use Each
+
+**Use `acp query`** when:
+- Retrieving specific file, symbol, or domain data
+- Building scripts or automation
+- Analyzing cache structure
+- Custom tooling integration
+
+**Use `acp context`** when:
+- Preparing AI agents for file creation, modification, or debugging
+- Need holistic context including constraints, dependencies, and conventions
+- Want pre-formatted output optimized for AI consumption
+
+### 8.3 Command Comparison
+
+```bash
+# Query: Get raw file data
+acp query file src/auth/login.ts
+
+# Context: Get modification context (includes constraints, importers, etc.)
+acp context modify --file src/auth/login.ts
+```
+
+**Query output** returns the raw cache entry with all indexed fields.
+
+**Context output** returns a curated view optimized for the specific operation, including:
+- Lock level and reason
+- Files that import this file (`imported_by`)
+- Related symbols and dependencies
+- Style and behavior constraints
+
+See [Chapter 14: Bootstrap & AI Integration](14-bootstrap.md) for complete `acp context` documentation.
+
+---
+
 ## Appendix A: jq Quick Reference
 
 ### Common Patterns
@@ -1027,6 +1078,8 @@ Queries return stale data if the cache is outdated. Implementations SHOULD:
 - [Variables](07-variables.md) — Variable expansion
 - [Constraints](06-constraints.md) — Constraint definitions
 - [Introduction](01-introduction.md) — Overview and workflows
+- [Bootstrap & AI Integration](14-bootstrap.md) — `acp context` command and AI workflows (RFC-0015)
+- [Tool Integration](11-tool-integration.md) — Primer system and tiered output (RFC-0015)
 - [Terminology](02-terminology.md) — Definitions
 
 ---

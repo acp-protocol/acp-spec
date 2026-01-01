@@ -1,9 +1,9 @@
 # Tool Integration
 
 **ACP Version**: 1.0.0
-**Document Version**: 1.0.0
-**Last Updated**: 2024-12-18
-**Status**: Draft
+**Document Version**: 1.1.0
+**Last Updated**: 2025-12-31
+**Status**: RFC-0002, RFC-0015 Compliant
 
 ---
 
@@ -12,6 +12,15 @@
 1. [Overview](#1-overview)
 2. [Tool Registry](#2-tool-registry)
 3. [Primer System](#3-primer-system)
+   - [3.1 Section Structure](#31-section-structure)
+   - [3.2 Multi-Dimensional Value Scoring](#32-multi-dimensional-value-scoring)
+   - [3.3 Dynamic Value Modifiers](#33-dynamic-value-modifiers)
+   - [3.4 Selection Algorithm](#34-selection-algorithm)
+   - [3.5 Section Categories](#35-section-categories)
+   - [3.6 Output Formats](#36-output-formats)
+   - [3.7 Tiered Primer System (RFC-0015)](#37-tiered-primer-system-rfc-0015)
+   - [3.8 IDE Environment Detection (RFC-0015)](#38-ide-environment-detection-rfc-0015)
+   - [3.9 Foundation Prompt (RFC-0015)](#39-foundation-prompt-rfc-0015)
 4. [Sync Command](#4-sync-command)
 5. [Primer Command](#5-primer-command)
 6. [Configuration](#6-configuration)
@@ -262,6 +271,145 @@ Each section defines templates for multiple formats:
 | `compact`  | Token-constrained tools              | Single line, abbreviated |
 | `json`     | API responses, MCP tools             | Structured data          |
 | `text`     | Plain text config files              | No formatting            |
+
+### 3.7 Tiered Primer System (RFC-0015)
+
+RFC-0015 introduces a 4-tier primer system for automatic content selection based on token budget. Tiers provide predictable output sizes aligned with common use cases.
+
+#### 3.7.1 Tier Definitions
+
+| Tier | Budget Range | CLI Tokens | MCP Tokens | Use Case |
+|------|--------------|------------|------------|----------|
+| **Micro** | <300 | ~250 | ~178 | Essential safety constraints only |
+| **Minimal** | 300-449 | ~400 | ~285 | Core project context |
+| **Standard** | 450-699 | ~600 | ~428 | Balanced context with conventions |
+| **Full** | ≥700 | ~1400 | ~1000 | Complete project understanding |
+
+#### 3.7.2 Tier Selection Algorithm
+
+```
+function selectTier(budget):
+    if budget < 300:
+        return Tier.Micro
+    else if budget < 450:
+        return Tier.Minimal
+    else if budget < 700:
+        return Tier.Standard
+    else:
+        return Tier.Full
+```
+
+#### 3.7.3 Tier Content Guidelines
+
+**Micro Tier** (~250 tokens):
+- ACP existence awareness
+- Critical constraint summary (frozen files only)
+- Single CLI command reference
+
+**Minimal Tier** (~400 tokens):
+- Micro content +
+- Lock level explanations
+- Domain overview
+- Basic CLI command set
+
+**Standard Tier** (~600 tokens):
+- Minimal content +
+- File naming conventions
+- Import/export patterns
+- Inline annotation awareness
+- Extended CLI commands
+
+**Full Tier** (~1400 tokens):
+- Standard content +
+- Complete constraint details
+- All domain information
+- Symbol-level annotations
+- MCP tool references
+- Knowledge expansion hints
+
+#### 3.7.4 CLI Usage
+
+```bash
+# Automatic tier selection based on budget
+acp primer --budget 500   # Standard tier
+acp primer --budget 800   # Full tier
+acp primer --budget 200   # Micro tier
+
+# View tier information in output
+acp primer --budget 500 --json
+# Returns: { "tier": "standard", "total_tokens": 580, ... }
+```
+
+### 3.8 IDE Environment Detection (RFC-0015)
+
+The primer system automatically detects IDE environments to provide appropriate warnings when conflicting configurations are used.
+
+#### 3.8.1 Supported Environments
+
+| Environment | Detection Method | Notes |
+|-------------|------------------|-------|
+| Cursor | `CURSOR=1` environment variable | Primary IDE |
+| VS Code | `VSCODE_*` environment variables | Via terminal |
+| Cline | `CLINE=1` environment variable | Extension |
+| JetBrains | `JETBRAINS_IDE` environment variable | IntelliJ family |
+| Zed | `ZED_*` environment variables | Editor |
+| Claude Code | `CLAUDE_CODE=1` environment variable | CLI |
+
+#### 3.8.2 Detection Behavior
+
+When an IDE environment is detected:
+
+1. **Normal Operation**: No change - primer generates content as usual
+2. **With `--standalone` Flag**: Warning is emitted when using standalone mode in an IDE that typically provides its own system prompts
+
+```bash
+# In Cursor environment
+$ acp primer --standalone
+warning: Using --standalone in Cursor context.
+         IDE integrations typically provide their own system prompts.
+         Consider removing --standalone or set ACP_NO_IDE_DETECT=1 to suppress.
+```
+
+#### 3.8.3 Disabling Detection
+
+Set `ACP_NO_IDE_DETECT=1` to disable IDE environment detection:
+
+```bash
+export ACP_NO_IDE_DETECT=1
+acp primer --standalone  # No warning
+```
+
+### 3.9 Foundation Prompt (RFC-0015)
+
+The foundation prompt is a standalone context package for raw API usage without IDE system prompts.
+
+#### 3.9.1 Purpose
+
+When using Claude or other LLMs via direct API calls (not through an IDE integration), the `--standalone` flag includes foundational context that IDEs typically provide:
+
+- Basic behavior guidelines
+- File operation awareness
+- Code modification best practices
+- Safety considerations
+
+#### 3.9.2 Usage
+
+```bash
+# Generate primer with foundation prompt for API usage
+acp primer --budget 800 --standalone
+
+# For scripts or automation
+API_PROMPT=$(acp primer --budget 1000 --standalone)
+```
+
+#### 3.9.3 When to Use Standalone
+
+| Scenario | Use Standalone? |
+|----------|-----------------|
+| Direct API calls (curl, SDK) | Yes |
+| Custom AI integration | Yes |
+| IDE with built-in prompts (Cursor, Claude Code) | No |
+| MCP server integration | Depends on host |
 
 ---
 
@@ -762,8 +910,9 @@ acp primer --budget 500 --preview --tool cursor
 - [Sync Schema](../schemas/v1/sync.schema.json)
 - [Default Primer Library](../primers/primer.defaults.json)
 - [CLI Primer Reference](../docs/cli-primer-reference.md)
-- [Cache Format](03-cache-format.md) - How annotations are stored
+- [Cache Format](03-cache-format.md) - How annotations are stored, including `conventions` and `imported_by` (RFC-0015)
 - [Config Format](04-config-format.md) - Configuration options
+- [Bootstrap & AI Integration](14-bootstrap.md) - CLI commands including `acp context` (RFC-0015)
 
 ---
 

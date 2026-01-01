@@ -1,5 +1,7 @@
 # ACP Edge Cases & Gotchas
 
+**Updated for ACP 1.3.0 (RFC-0015)**
+
 This document covers unusual scenarios, edge cases, and common pitfalls when working with ACP.
 
 ---

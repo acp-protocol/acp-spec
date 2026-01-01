@@ -1,9 +1,9 @@
 # Bootstrap & AI Integration Specification
 
 **ACP Version**: 1.0.0
-**Document Version**: 1.0.0
-**Last Updated**: 2025-12-21
-**Status**: RFC-001 Compliant
+**Document Version**: 1.1.0
+**Last Updated**: 2025-12-31
+**Status**: RFC-001, RFC-0015 Compliant
 
 ---
 
@@ -13,6 +13,12 @@
 2. [Bootstrap Prompts](#2-bootstrap-prompts)
 3. [AI Integration](#3-ai-integration)
 4. [CLI Commands](#4-cli-commands)
+   - [4.1 `acp constraints`](#41-acp-constraints)
+   - [4.2 `acp map`](#42-acp-map)
+   - [4.3 `acp query file`](#43-acp-query-file)
+   - [4.4 `acp query symbol`](#44-acp-query-symbol)
+   - [4.5 `acp context` (RFC-0015)](#45-acp-context-rfc-0015)
+   - [4.6 MCP `acp_context` Tool](#46-mcp-acp_context-tool)
 5. [Query Output Formats](#5-query-output-formats)
 
 ---
@@ -363,6 +369,264 @@ acp query symbol <qualified-name>
 }
 ```
 
+### 4.5 `acp context` (RFC-0015)
+
+Get operation-specific context for AI agents. This command provides targeted context based on what the AI is about to do, improving accuracy by providing relevant information for each operation type.
+
+**Syntax:**
+```bash
+acp context <operation> [options]
+```
+
+**Operations:**
+
+| Operation | Description | Key Options |
+|-----------|-------------|-------------|
+| `create` | Context for creating new files | `--directory <path>` |
+| `modify` | Context for modifying existing files | `--file <path>` (required) |
+| `debug` | Context for debugging issues | `--file <path>` (required) |
+| `explore` | Context for exploring the project | (none) |
+
+#### 4.5.1 `acp context create`
+
+Get naming conventions and import style for creating new files.
+
+**Syntax:**
+```bash
+acp context create [--directory <path>]
+```
+
+**Output:**
+```
+Creating New Files
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Naming Conventions:
+  src/components/  → PascalCase.tsx (95% confidence)
+  src/hooks/       → camelCase.ts (92% confidence)
+  src/utils/       → kebab-case.ts (88% confidence)
+
+Anti-patterns:
+  src/components/  → UPPER_CASE.tsx, snake_case.tsx
+
+Import Style:
+  Module system: ESM (import/export)
+  Path style: Relative (../utils/helpers)
+
+Project Structure:
+  Primary language: TypeScript (87%)
+  Domains: authentication, api, components
+```
+
+**JSON Output** (`--json`):
+```json
+{
+  "conventions": {
+    "file_naming": [
+      {
+        "directory": "src/components",
+        "pattern": "PascalCase",
+        "extension": ".tsx",
+        "confidence": 0.95,
+        "examples": ["UserProfile.tsx", "LoginForm.tsx"]
+      }
+    ],
+    "anti_patterns": [
+      {
+        "directory": "src/components",
+        "patterns": ["UPPER_CASE", "snake_case"]
+      }
+    ],
+    "imports": {
+      "module_system": "esm",
+      "path_style": "relative"
+    }
+  },
+  "stats": {
+    "primary_language": "TypeScript",
+    "languages": [
+      { "name": "TypeScript", "percentage": 87 }
+    ]
+  }
+}
+```
+
+#### 4.5.2 `acp context modify`
+
+Get constraints and dependent files for modifications. Essential for understanding impact before editing.
+
+**Syntax:**
+```bash
+acp context modify --file <path>
+```
+
+**Output:**
+```
+Modifying: src/auth/session.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Constraints:
+  Lock: restricted
+  Directive: Explain proposed changes and wait for approval
+
+Imported By (4 files):
+  • src/api/middleware.ts
+  • src/routes/login.ts
+  • src/routes/logout.ts
+  • src/tests/auth.test.ts
+
+Key Symbols:
+  • SessionService.validateSession [L:45-89] 🔒 frozen
+  • SessionService.refreshSession [L:100-130]
+  • createSession [L:150-180]
+
+Inline Annotations:
+  L:45  @acp:critical → Review with extreme care
+  L:78  @acp:todo → Add rate limiting
+```
+
+**JSON Output** (`--json`):
+```json
+{
+  "file": "src/auth/session.ts",
+  "constraints": {
+    "lock_level": "restricted",
+    "directive": "Explain proposed changes and wait for approval"
+  },
+  "imported_by": [
+    "src/api/middleware.ts",
+    "src/routes/login.ts",
+    "src/routes/logout.ts",
+    "src/tests/auth.test.ts"
+  ],
+  "symbols": [
+    {
+      "name": "SessionService.validateSession",
+      "lines": [45, 89],
+      "lock_level": "frozen"
+    }
+  ],
+  "inline": [
+    { "type": "critical", "line": 45, "directive": "Review with extreme care" }
+  ]
+}
+```
+
+#### 4.5.3 `acp context debug`
+
+Get related files and symbols for debugging. Shows call graph and file relationships.
+
+**Syntax:**
+```bash
+acp context debug --file <path>
+```
+
+**Output:**
+```
+Debugging: src/utils/helpers.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Domain: utilities
+Purpose: Common utility functions
+
+Calls (outgoing):
+  • src/utils/logger.ts:log
+  • src/utils/format.ts:formatDate
+
+Called By (incoming):
+  • src/auth/session.ts:SessionService.validateSession
+  • src/api/users.ts:getUser
+
+Related Files (same domain):
+  • src/utils/logger.ts
+  • src/utils/format.ts
+  • src/utils/crypto.ts
+
+Known Issues:
+  L:23  @acp:fixme → Race condition in async handler
+  L:45  @acp:todo → Optimize for large inputs
+```
+
+#### 4.5.4 `acp context explore`
+
+Get project overview and domain structure for exploration.
+
+**Syntax:**
+```bash
+acp context explore
+```
+
+**Output:**
+```
+Project: my-project
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Overview:
+  Files: 127
+  Symbols: 843
+  Lines: 24,521
+  Primary Language: TypeScript (87%)
+
+Domains:
+  authentication (12 files)
+    Key: src/auth/session.ts, src/auth/jwt.ts
+  api (18 files)
+    Key: src/api/routes.ts, src/api/middleware.ts
+  components (45 files)
+    Key: src/components/App.tsx
+
+Layers:
+  service: 15 files
+  handler: 23 files
+  util: 18 files
+
+Protected Files:
+  frozen: 3 files
+  restricted: 8 files
+```
+
+### 4.6 MCP `acp_context` Tool
+
+The context command is also available as an MCP tool for AI systems using the Model Context Protocol.
+
+**Tool Definition:**
+```json
+{
+  "name": "acp_context",
+  "description": "Get operation-specific context for AI agents",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "enum": ["create", "modify", "debug", "explore"],
+        "description": "The operation type"
+      },
+      "file": {
+        "type": "string",
+        "description": "File path (required for modify/debug)"
+      },
+      "directory": {
+        "type": "string",
+        "description": "Directory path (optional for create)"
+      }
+    },
+    "required": ["operation"]
+  }
+}
+```
+
+**Example Usage:**
+```json
+{
+  "name": "acp_context",
+  "arguments": {
+    "operation": "modify",
+    "file": "src/auth/login.ts"
+  }
+}
+```
+
 ---
 
 ## 5. Query Output Formats
@@ -469,8 +733,9 @@ Check `@acp:*` comments for constraints before suggesting edits.
 
 - [Annotation Syntax](05-annotations.md) - Annotation format and directives
 - [Constraint System](06-constraints.md) - Constraint definitions
-- [Cache Format](03-cache-format.md) - How data is stored
+- [Cache Format](03-cache-format.md) - How data is stored, including `conventions` and `imported_by` (RFC-0015)
 - [Querying](10-querying.md) - Query interface details
+- [Tool Integration](11-tool-integration.md) - Primer system including tiers, IDE detection (RFC-0015)
 
 ---
 
