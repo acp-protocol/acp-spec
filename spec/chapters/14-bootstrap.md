@@ -13,7 +13,7 @@
 2. [Bootstrap Prompts](#2-bootstrap-prompts)
 3. [AI Integration](#3-ai-integration)
 4. [CLI Commands](#4-cli-commands)
-   - [4.1 `acp constraints`](#41-acp-constraints)
+   - [4.1 `acp check`](#41-acp-check)
    - [4.2 `acp map`](#42-acp-map)
    - [4.3 `acp query file`](#43-acp-query-file)
    - [4.4 `acp query symbol`](#44-acp-query-symbol)
@@ -54,7 +54,7 @@ The minimal bootstrap is sufficient when all annotations include self-documentin
 
 ```
 This project uses ACP. @acp:* comments in code are directives for you.
-BEFORE editing: acp constraints <path>
+BEFORE editing: acp check <path>
 Explore: acp query symbol|file|domain <name>
 Map: acp map <path>
 Help: acp knowledge "question"
@@ -76,12 +76,12 @@ This project uses ACP (AI Context Protocol). @acp:* comments in code are
 directives that MUST be followed.
 
 WORKFLOW:
-1. BEFORE modifying any file, run: acp constraints <path>
+1. BEFORE modifying any file, run: acp check <path>
 2. Respect lock levels: frozen (never modify), restricted (approval required)
 3. Read the directive text after " - " in each annotation
 
 COMMANDS:
-- acp constraints <path>  - Check file constraints before editing
+- acp check <path>        - Check file constraints before editing
 - acp query file <path>   - Get file context with symbols and constraints
 - acp query symbol <name> - Get symbol details with callers/callees
 - acp query domain <name> - Get domain files and relationships
@@ -154,7 +154,7 @@ AI systems MUST follow this workflow before modifying files:
           │
           ▼
 ┌─────────────────────┐
-│ acp constraints     │
+│ acp check           │
 │ <target-file>       │
 └─────────┬───────────┘
           │
@@ -202,7 +202,7 @@ AI systems SHOULD check constraints:
 | Action | Check Required |
 |--------|----------------|
 | Read file | No |
-| Modify file | Yes - `acp constraints <path>` |
+| Modify file | Yes - `acp check <path>` |
 | Delete file | Yes - check for `frozen` |
 | Rename file | Yes - check for constraints |
 | Create file | No - but check directory patterns |
@@ -223,13 +223,13 @@ When AI needs context about code:
 
 ## 4. CLI Commands
 
-### 4.1 `acp constraints`
+### 4.1 `acp check`
 
 Check constraints before editing a file.
 
 **Syntax:**
 ```bash
-acp constraints <path>
+acp check <path>
 ```
 
 **Output (RFC-001 format):**
@@ -697,7 +697,7 @@ Add to `.claude/CLAUDE.md`:
 ## ACP Integration
 
 This project uses ACP. Before modifying any file:
-1. Run `acp constraints <path>`
+1. Run `acp check <path>`
 2. Follow the directive in any `@acp:*` annotations
 3. Respect lock levels (frozen = never modify)
 ```
@@ -709,7 +709,7 @@ Add to `.cursorrules`:
 ```
 # ACP Protocol
 This codebase uses @acp:* annotations as directives.
-Before editing, check: acp constraints <path>
+Before editing, check: acp check <path>
 Follow directives after " - " in annotations.
 Lock levels: frozen (never), restricted (approval), normal (ok)
 ```
